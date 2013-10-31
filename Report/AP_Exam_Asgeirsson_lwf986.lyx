@@ -1,0 +1,413 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+\usepackage[a4paper]{geometry}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}
+
+\fancyhead[LO,LE]{Left}
+\fancyhead[CO,CE]{Center}
+\fancyhead[RO,RE]{Right}
+
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{ %
+  backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}
+  basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=false,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{mygreen},    % comment style
+  deletekeywords={...},            % if you want to delete keywords from the given language
+  escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+  frame=single,                    % adds a frame around the code
+  keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+  keywordstyle=\color{blue},       % keyword style
+  morekeywords={*,...},            % if you want to add more keywords to the set
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{mygray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+  stringstyle=\color{mymauve},     % string literal style
+  tabsize=2,                       % sets default tabsize to 2 spaces
+ % title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+AP Exam 2013
+\end_layout
+
+\begin_layout Author
+Arni Asgeirsson lwf986
+\end_layout
+
+\begin_layout Date
+Date?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+- Introduction to this report (what is it about, what is the structure?,
+ where are the tests?), the exam and the three questions.
+\end_layout
+
+\begin_layout Standard
+- What files are being handed in?
+\end_layout
+
+\begin_layout Standard
+- What is the structure of my src folder?
+\end_layout
+
+\begin_layout Standard
+- That the handed in code also provides details of my implementations
+\end_layout
+
+\begin_layout Standard
+- What do I feel is important to show/tell in this report?
+\end_layout
+
+\begin_layout Standard
++ How do i generally structure my assessments?
+\end_layout
+
+\begin_layout Standard
+- Any general assumptions
+\end_layout
+
+\begin_layout Standard
+- Any errors in the handed out code
+\end_layout
+
+\begin_layout Standard
+- Any extra notes or comments
+\end_layout
+
+\begin_layout Section
+Question 1: The 
+\noun on
+Salsa
+\noun default
+ Language
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Initial Comments/Introduction to the question:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I have chosen ReadP beacuse it also allows me to check that if the grammar
+ is ambigious.
+ How exactly?
+\end_layout
+
+\begin_layout Subsection
+Fixing the grammar
+\end_layout
+
+\begin_layout Subsubsection
+Left factorization
+\end_layout
+
+\begin_layout Subsubsection
+Left recursion
+\end_layout
+
+\begin_layout Subsubsection
+Precedence
+\end_layout
+
+\begin_layout Subsection
+Assumptions on the grammar
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- Define 'integer'
+\end_layout
+
+\begin_layout Plain Layout
+- Define 'VIdent'
+\end_layout
+
+\begin_layout Plain Layout
+- Define 'SIdent'
+\end_layout
+
+\begin_layout Plain Layout
+- Define white spaces
+\end_layout
+
+\begin_layout Plain Layout
+- Define reserved words
+\end_layout
+
+\begin_layout Plain Layout
+- Define color names
+\end_layout
+
+\begin_layout Plain Layout
+- Does this mean 0 or more V 1 or more 
+\begin_inset Quotes eld
+\end_inset
+
+symbolic tokens are separated by arbitrary whitespace.
+\begin_inset Quotes erd
+\end_inset
+
+, page 4 - bottom.
+\end_layout
+
+\begin_layout Plain Layout
+anymore?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+The code
+\end_layout
+
+\begin_layout Subsubsection
+Interface functions
+\end_layout
+
+\begin_layout Paragraph
+parseString :: String -> Either Error Program
+\end_layout
+
+\begin_layout Paragraph
+parseFile :: FilePath -> IO (Either Error Program)
+\end_layout
+
+\begin_layout Subsubsection
+Implementation functions
+\end_layout
+
+\begin_layout Subsubsection
+Helper functions
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+When is a function a helper function and not a implementation function?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Tests?
+\end_layout
+
+\begin_layout Section
+Question 2: Interpreting 
+\noun on
+Salsa
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Initial Comments/Introduction to the question:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Any assumptions
+\end_layout
+
+\begin_layout Standard
+- How the coordinate system is defined, see page 8 - top.
+\end_layout
+
+\begin_layout Standard
+- The position of the different shapes, i.e.
+ their anchor points/pivot points.
+\end_layout
+
+\begin_layout Standard
+- 
+\begin_inset Quotes eld
+\end_inset
+
+All of these can be checked statically prior to executing the Salsa program,
+ hence you don’t have to worry about proper error handling in this question.
+ If you encounter an error, you should halt the interpreter by calling the
+ built-in Haskell function error.
+ Writing the static check, as a separate pass over the abstract syntax tree,
+ is not part of the exam.
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+The code
+\end_layout
+
+\begin_layout Subsubsection
+The Monad(s)
+\end_layout
+
+\begin_layout Subsubsection
+Interface functions
+\end_layout
+
+\begin_layout Subsubsection
+Implementation functions
+\end_layout
+
+\begin_layout Subsubsection
+Helper functions
+\end_layout
+
+\begin_layout Subsubsection
+Graphics engine functions?
+\end_layout
+
+\begin_layout Subsection
+Tests?
+\end_layout
+
+\begin_layout Section
+Question 3: Atomic Transaction Server in Erlang
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Appendix A
+\end_layout
+
+\end_body
+\end_document
