@@ -177,6 +177,10 @@ Introduction
 \end_layout
 
 \begin_layout Standard
+- Where is all the code, and how much of it have I included?
+\end_layout
+
+\begin_layout Standard
 - Any extra notes or comments
 \end_layout
 
@@ -203,7 +207,7 @@ Initial Comments/Introduction to the question:
 
 \begin_layout Standard
 I have chosen ReadP beacuse it also allows me to check that if the grammar
- is ambigious.
+ is ambiguous.
  How exactly?
 \end_layout
 
@@ -211,16 +215,545 @@ I have chosen ReadP beacuse it also allows me to check that if the grammar
 Fixing the grammar
 \end_layout
 
+\begin_layout Standard
+The given grammar is ambiguous and this must be dealt with before proceeding
+ with the actual parser.
+ The given grammar is as follows and we shall call this G1.
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom
+\end_layout
+
+\begin_layout LyX-Code
+    | DefCom DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | Command ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | Command ’||’ Command
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | VIdent VIdents .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent SIdents .
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’y’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
 \begin_layout Subsubsection
 Left factorization
+\end_layout
+
+\begin_layout Standard
+We can see that G1 contains the case of left factorization problem.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Rephrase!!
+\end_layout
+
+\end_inset
+
+ We therefore start by fixing this by doing left factorization on G1.
+\end_layout
+
+\begin_layout Standard
+I have summarized how I do left factorization in the following algorithm:
+\end_layout
+
+\begin_layout LyX-Code
+A ::= B a1
+\end_layout
+
+\begin_layout LyX-Code
+    | B a2.
+\end_layout
+
+\begin_layout LyX-Code
+->
+\end_layout
+
+\begin_layout LyX-Code
+A ::= B A' .
+\end_layout
+
+\begin_layout LyX-Code
+A'::= a1
+\end_layout
+
+\begin_layout LyX-Code
+    | a2 .
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+note that if any of the prev a1-an is nothing, then A' should also have
+ epsilon e clause 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where A, As' and B are non-terminals and a1 & a2 are something else.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Skriv det ordenligt!!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The resulting grammar is as follows and this shall be called G2.
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom DefComs' .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs' ::= DefComs
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’
+\end_layout
+
+\begin_layout LyX-Code
+    | Command Rest .
+\end_layout
+
+\begin_layout LyX-Code
+Rest ::= ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’||’ Command .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent VIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents' ::= VIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent SIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents' ::= SIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e.
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr Rest2 .
+\end_layout
+
+\begin_layout LyX-Code
+Rest2 :: = ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ Rest3 .
+\end_layout
+
+\begin_layout LyX-Code
+Rest3 ::= ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’y’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
 \end_layout
 
 \begin_layout Subsubsection
 Left recursion
 \end_layout
 
+\begin_layout Standard
+When we look at G2 we can quickly see that there is a few cases of direct
+ left-recursion.
+ The next is I take is therefore to remove left-recursion from our current
+ grammar G2, with the following algorithm:
+\end_layout
+
+\begin_layout LyX-Code
+A ::= A a1
+\end_layout
+
+\begin_layout LyX-Code
+    | b1 .
+\end_layout
+
+\begin_layout LyX-Code
+->
+\end_layout
+
+\begin_layout LyX-Code
+A ::= b1 A' .
+\end_layout
+
+\begin_layout LyX-Code
+A'::= a1 A'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout Standard
+where A and A' are non-terminals and a1 & b1 are 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+what?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When applying the procedure/algorithm on G2 we get the grammar G3 which
+ is shown below:
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom DefComs' .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs' ::= DefComs
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= SIdents ’->’ Pos Command'
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ Command' .
+\end_layout
+
+\begin_layout LyX-Code
+Command' ::= Rest Command'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Rest ::= ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’||’ Command .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent VIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents' ::= VIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent SIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents' ::= SIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e.
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim Expr' .
+\end_layout
+
+\begin_layout LyX-Code
+Expr' ::= Rest2 Expr'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Rest2 :: = ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent Rest3 .
+\end_layout
+
+\begin_layout LyX-Code
+Rest3 ::= ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’.’ ’y’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
 \begin_layout Subsubsection
 Precedence
+\end_layout
+
+\begin_layout Standard
+- What has precedence?
+\end_layout
+
+\begin_layout Standard
+- Do we need to fix it here in the grammar? Is that even possible? No, but
+ we could help it, although the case is very small and might as well fix
+ it by using the operators of ReadP ?
 \end_layout
 
 \begin_layout Subsection
@@ -276,8 +809,201 @@ anymore?
 
 \end_layout
 
+\begin_layout Standard
+Some of the non-terminals in the grammar is not specified in the grammar,
+ but partly in the assignment text.
+ I will therefore 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+..
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Case sensitivity
+\end_layout
+
+\begin_layout Standard
+I assume that Samba is case sensitive.
+ (This should be given from all definition of 
+\emph on
+VIdent
+\emph default
+ and 
+\emph on
+SIdent
+\emph default
+)
+\end_layout
+
+\begin_layout Subsubsection
+integer
+\end_layout
+
+\begin_layout Standard
+Is a non-negative integer number and can therefore be written with the following
+ regular expression: 
+\end_layout
+
+\begin_layout Standard
+[0-9]+
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Double check! Make math?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+VIdent
+\end_layout
+
+\begin_layout Standard
+As the assignment text specifies then 
+\emph on
+VIdent
+\emph default
+ is a nonempty sequence of letters, digits and underscore, which starts
+ with a uppercase letter and can therefore be written with the following
+ regular expression:
+\end_layout
+
+\begin_layout Standard
+['A'-'Z']+['A'-'Z''a'-'z'0-9_]*
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Double check! Make math?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+SIdent
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+SIdent
+\emph default
+ is the same as a 
+\emph on
+VIdent
+\emph default
+ except it cannot be one of the reserved words, described below, and has
+ to start with a lowercase letter, which can be described as:
+\end_layout
+
+\begin_layout Standard
+['a'-'z']+['A'-'Z''a'-'z'0-9_]*
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Double check! Make math?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+White spaces
+\end_layout
+
+\begin_layout Standard
+Whitespaces are what most would expect, spaces, any tabs, newlines and unicode
+ spaces
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+What is unicode spaces, do they belong here?
+\end_layout
+
+\end_inset
+
+.
+ As I am using ReadP I will let the the function skipSpaces
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Link to documentation
+\end_layout
+
+\end_inset
+
+ define the exact representation of white spaces.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The reserved words, color names, 
+\emph on
+VIdent
+\emph default
+, and 
+\emph on
+SIdent
+\emph default
+ are separated by at least one white space of any kind.
+ Symbolic tokens are separated by 0 or more white spaces and so are symbolic
+ tokens and alpha-numeric tokens from each other.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Rephrase?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Reserved Words
+\end_layout
+
+\begin_layout Standard
+The reserved words are: 'viewdef', 'rectangle', 'circle', 'group' and 'view'.
+\end_layout
+
+\begin_layout Subsubsection
+Color Names
+\end_layout
+
+\begin_layout Standard
+The names of the color are also considered to be reserved words and are
+ the following: 'blue', 'plum', 'red', 'green' and 'orange'.
+\end_layout
+
 \begin_layout Subsection
-The code
+The Code
 \end_layout
 
 \begin_layout Subsubsection
@@ -367,7 +1093,7 @@ All of these can be checked statically prior to executing the Salsa program,
 \end_layout
 
 \begin_layout Subsection
-The code
+The Code
 \end_layout
 
 \begin_layout Subsubsection
@@ -396,6 +1122,51 @@ Tests?
 
 \begin_layout Section
 Question 3: Atomic Transaction Server in Erlang
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Initial Comments/Introduction to the question:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Any assumptions
+\end_layout
+
+\begin_layout Standard
+- Define 'atomic transaction'
+\end_layout
+
+\begin_layout Subsection
+The Code
+\end_layout
+
+\begin_layout Subsubsection
+The Server API / Interface functions
+\end_layout
+
+\begin_layout Subsubsection
+Implementation functions
+\end_layout
+
+\begin_layout Subsubsection
+Helper functions
+\end_layout
+
+\begin_layout Subsubsection
+Something about the states + state functions?
+\end_layout
+
+\begin_layout Subsubsection
+The answer to the problem stated at page 13 - top.
 \end_layout
 
 \begin_layout Standard
