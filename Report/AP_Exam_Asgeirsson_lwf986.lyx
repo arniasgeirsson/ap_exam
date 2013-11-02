@@ -139,6 +139,19 @@ LatexCommand tableofcontents
 
 \end_layout
 
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Remove or comment on all used partial functions!!!!!!!!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Introduction
 \end_layout
@@ -335,6 +348,30 @@ Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
 
 \begin_layout Subsubsection
 Precedence and Associativity
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+OLEKS -2: The transformation of the grammar to handle precedence does not
+ strictly speaking handle precedence.
+ The problem is that the | is symmetric choice, so both options are valid,
+ it is not that the seond option is _not_ considered if the first matches
+ as you've expected.
+ This is an important aspect in compilers, but not so much in AP.
+\end_layout
+
+\begin_layout Plain Layout
+OLEKS -2: On the contrary, you should've mentioned _why_ you chose to use
+ <++ instead of the fully symmetric choice operator +++ in ReadP.
+ The reason is that you wanted precedence.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -854,7 +891,7 @@ Expr ::= Prim
 \end_layout
 
 \begin_layout LyX-Code
-Rest2 :: = ’+’ Prim
+Op :: = ’+’ Prim
 \end_layout
 
 \begin_layout LyX-Code
@@ -874,7 +911,7 @@ Prim ::= integer
 \end_layout
 
 \begin_layout LyX-Code
-Rest3 ::= ’x’
+Proj ::= ’x’
 \end_layout
 
 \begin_layout LyX-Code
@@ -1060,7 +1097,7 @@ Expr' ::= Rest2 Expr'
 \end_layout
 
 \begin_layout LyX-Code
-Rest2 :: = ’+’ Prim
+Op :: = ’+’ Prim
 \end_layout
 
 \begin_layout LyX-Code
@@ -1080,7 +1117,7 @@ Prim ::= integer
 \end_layout
 
 \begin_layout LyX-Code
-Rest3 ::= ’.’ ’x’
+Proj ::= ’.’ ’x’
 \end_layout
 
 \begin_layout LyX-Code
@@ -1091,73 +1128,20 @@ Rest3 ::= ’.’ ’x’
 Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
 \end_layout
 
+\begin_layout Standard
+In the rest of the report G3 will be the referred grammar unless something
+ else is specified.
+\end_layout
+
 \begin_layout Subsection
 Assumptions on the grammar
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-- Define 'integer'
-\end_layout
-
-\begin_layout Plain Layout
-- Define 'VIdent'
-\end_layout
-
-\begin_layout Plain Layout
-- Define 'SIdent'
-\end_layout
-
-\begin_layout Plain Layout
-- Define white spaces
-\end_layout
-
-\begin_layout Plain Layout
-- Define reserved words
-\end_layout
-
-\begin_layout Plain Layout
-- Define color names
-\end_layout
-
-\begin_layout Plain Layout
-- Does this mean 0 or more V 1 or more 
-\begin_inset Quotes eld
-\end_inset
-
-symbolic tokens are separated by arbitrary whitespace.
-\begin_inset Quotes erd
-\end_inset
-
-, page 4 - bottom.
-\end_layout
-
-\begin_layout Plain Layout
-anymore?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Some of the non-terminals in the grammar is not specified in the grammar,
- but partly in the assignment text.
- I will therefore 
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-..
-\end_layout
-
-\end_inset
-
-
+Some of the non-terminals in the grammar are not specified in the grammar,
+ and only partly described in the assignment text.
+ I will therefore list my assumptions and the definitions that I use in
+ my implementation.
 \end_layout
 
 \begin_layout Subsubsection
@@ -1187,13 +1171,10 @@ Is a non-negative integer number and can therefore be written with the following
 \end_layout
 
 \begin_layout Standard
-[0-9]+
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Double check! Make math?
-\end_layout
+\begin_inset Formula 
+\[
+[0-9]^{+}
+\]
 
 \end_inset
 
@@ -1215,13 +1196,10 @@ VIdent
 \end_layout
 
 \begin_layout Standard
-['A'-'Z']+['A'-'Z''a'-'z'0-9_]*
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Double check! Make math?
-\end_layout
+\begin_inset Formula 
+\[
+[A-Z]^{+}[A-Za-z0-9\_]^{*}
+\]
 
 \end_inset
 
@@ -1246,13 +1224,10 @@ VIdent
 \end_layout
 
 \begin_layout Standard
-['a'-'z']+['A'-'Z''a'-'z'0-9_]*
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Double check! Make math?
-\end_layout
+\begin_inset Formula 
+\[
+[a-z]^{+}[A-Za-z0-9\_]^{*}
+\]
 
 \end_inset
 
@@ -1341,6 +1316,45 @@ The names of the color are also considered to be reserved words and are
 The Code
 \end_layout
 
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Where can I find the code? both files and appendixes?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Comment on the remaining warnings and hints.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Is there anything I could have done differently?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Subsubsection
 Interface functions
 \end_layout
@@ -1349,16 +1363,66 @@ Interface functions
 parseString :: String -> Either Error Program
 \end_layout
 
+\begin_layout Standard
+This function is rather straight forward as it simply parses a given input
+ string to a program or an error if the input string is invalid.
+\end_layout
+
 \begin_layout Paragraph
 parseFile :: FilePath -> IO (Either Error Program)
 \end_layout
 
-\begin_layout Subsubsection
-Implementation functions
+\begin_layout Standard
+This function extends the functionality of 
+\family typewriter
+parseString
+\family default
+ by reading the input string from a given file path.
 \end_layout
 
 \begin_layout Subsubsection
-Helper functions
+DataTypes
+\end_layout
+
+\begin_layout Paragraph
+Error
+\end_layout
+
+\begin_layout Standard
+I have defined the Error type to be of the following
+\end_layout
+
+\begin_layout LyX-Code
+data Error = NoParsePossible String
+\end_layout
+
+\begin_layout LyX-Code
+           | AmbiguousGrammar [(Program, String)]
+\end_layout
+
+\begin_layout LyX-Code
+           | UnexpectedRemainder Program String
+\end_layout
+
+\begin_layout Standard
+Here we can see that a invalid salsa program can either return that it cannot
+ be parsed to anything at all, a parsed program and some remainder or multiply
+ parsed programs showing that the grammar is ambiguous, or at least that
+ the implementation of the grammar is.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Why did I choose these three? And what do they carry?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Parser functions
 \end_layout
 
 \begin_layout Standard
@@ -1366,12 +1430,452 @@ Helper functions
 status open
 
 \begin_layout Plain Layout
-When is a function a helper function and not a implementation function?
+Comment on the use of +++ and <++
 \end_layout
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Paragraph
+parse
+\end_layout
+
+\begin_layout Standard
+This function takes a parser 
+\emph on
+p
+\emph default
+ of type 
+\family typewriter
+ReadP Program 
+\family default
+and a string 
+\emph on
+s
+\emph default
+ and parses 
+\emph on
+s
+\emph default
+ with 
+\emph on
+p
+\emph default
+ and and returns the parsed program or the appropriate error if the input
+ did not adhere to the grammar.
+\end_layout
+
+\begin_layout Paragraph
+runParser
+\end_layout
+
+\begin_layout Standard
+This parser is a wrapper for the 
+\family typewriter
+pProgram
+\family default
+ parser and simply makes sure to skip spaces both before and after parsing
+ a program and also makes sure that we are at the end of the input after
+ parsing a program.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Doesn't this remove the need of the 'UnexpectedRemainder' error?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+pProgram
+\end_layout
+
+\begin_layout Standard
+Parses a program by trying to parse a list of definitions and or commands.
+\end_layout
+
+\begin_layout Paragraph
+pDefComs
+\end_layout
+
+\begin_layout Standard
+Parses a single definition or command and then tries to parse a list of
+ definitions and or commands.
+\end_layout
+
+\begin_layout Paragraph
+pDefComs'
+\end_layout
+
+\begin_layout Standard
+Parses either a list of commands and or definitions, nothing or a symmetric
+ choice of both.
+\end_layout
+
+\begin_layout Paragraph
+pDefCom
+\end_layout
+
+\begin_layout Standard
+Parses either a command or a definition.
+\end_layout
+
+\begin_layout Paragraph
+pDefinition
+\end_layout
+
+\begin_layout Standard
+Parses a definition by either parsing a view definition, rectangle, circle,
+ view or a group definition.
+ I decided to split 
+\family typewriter
+pDefinition
+\family default
+ into five individual parsers 
+\family typewriter
+hViewdef
+\family default
+, 
+\family typewriter
+hRectangle
+\family default
+, 
+\family typewriter
+hCircle
+\family default
+, 
+\family typewriter
+hView
+\family default
+ and 
+\family typewriter
+hGroup
+\family default
+ to make it more readable and intuitive to understand what is happening.
+\end_layout
+
+\begin_layout Paragraph
+pCommand
+\end_layout
+
+\begin_layout Standard
+Is the top-level parser for parsing a command by using the 
+\family typewriter
+pCommand'
+\family default
+, 
+\family typewriter
+pCommand2
+\family default
+, 
+\family typewriter
+pCommand2'
+\family default
+ and 
+\family typewriter
+pCommand3
+\family default
+ parsers.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This parses a command2 type which is either a move, bracketed or a series
+ of '@' commands and then parses a command' with the previous command as
+ incoming value.
+\end_layout
+
+\begin_layout Paragraph
+pCommand'
+\end_layout
+
+\begin_layout Standard
+Either parses a '||' command followed by another command' parsing or nothing.
+\end_layout
+
+\begin_layout Paragraph
+pCommand2
+\end_layout
+
+\begin_layout Standard
+First parses a command3 then parses a command2' with the command3 as incoming
+ value.
+\end_layout
+
+\begin_layout Paragraph
+pCommand2'
+\end_layout
+
+\begin_layout Standard
+Either parses a '@' command followed by another command2' parse or nothing.
+\end_layout
+
+\begin_layout Paragraph
+pCommand3
+\end_layout
+
+\begin_layout Standard
+Parses either a move command or a command wrapped in a set of curly-brackets.
+\end_layout
+
+\begin_layout Paragraph
+pVIdents
+\end_layout
+
+\begin_layout Standard
+Parses a single vident followed by possible a list of vidents.
+\end_layout
+
+\begin_layout Paragraph
+pVIdents'
+\end_layout
+
+\begin_layout Standard
+Parses a list of vidents or nothing.
+\end_layout
+
+\begin_layout Paragraph
+pSIdents
+\end_layout
+
+\begin_layout Standard
+Parses a single sident followed by possible a list of sidents.
+\end_layout
+
+\begin_layout Paragraph
+pSIdents'
+\end_layout
+
+\begin_layout Standard
+Parses a list of sidents or nothing.
+\end_layout
+
+\begin_layout Paragraph
+pPos
+\end_layout
+
+\begin_layout Standard
+Parses a position of either the 
+\family typewriter
+Abs
+\family default
+ or 
+\family typewriter
+Rel
+\family default
+ type.
+\end_layout
+
+\begin_layout Paragraph
+pExpr
+\end_layout
+
+\begin_layout Standard
+Parses an expression by parsing a prim and then using that as incoming value
+ to call 
+\family typewriter
+pExpr'
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+pExpr'
+\end_layout
+
+\begin_layout Standard
+Starts by parsing either a plus or minus expression 
+\emph on
+e
+\emph default
+ with the incoming value and then another expr' with 
+\emph on
+e
+\emph default
+, otherwise it parses nothing by just returning the incoming value.
+\end_layout
+
+\begin_layout Paragraph
+pOp
+\end_layout
+
+\begin_layout Standard
+Takes an incoming expression and either parses a plus or a minus, then the
+ next prim and returns this.
+\end_layout
+
+\begin_layout Paragraph
+pPrim
+\end_layout
+
+\begin_layout Standard
+Parses a either an integer, an expression contained within a set of parenthesis
+ or either an 
+\family typewriter
+Xproj
+\family default
+ or 
+\family typewriter
+Yproj
+\family default
+.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Rephrase!!
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+pProj
+\end_layout
+
+\begin_layout Standard
+This parser takes an ident as an incoming value and parses either an 'x'
+ or a 'y' and then returns the appropriate Expression of type 
+\family typewriter
+Xproj
+\family default
+ or 
+\family typewriter
+Yproj
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+pColour
+\end_layout
+
+\begin_layout Standard
+Parses one of the defined colours.
+\end_layout
+
+\begin_layout Paragraph
+pVIdent
+\end_layout
+
+\begin_layout Standard
+Simply parses a vident and skips all white spaces both before and after
+ the word.
+\end_layout
+
+\begin_layout Paragraph
+pSIdent
+\end_layout
+
+\begin_layout Standard
+Parses a sident and as same as the above also skips all white spaces both
+ before and after the word.
+ If the parsed word is one of the reserved words or one of the colour names
+ then it fails, otherwise it returns the parsed word.
+\end_layout
+
+\begin_layout Paragraph
+pInteger
+\end_layout
+
+\begin_layout Standard
+Parses an integer and skips all white spaces both before and after the integer.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Note on the use of read?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Helper functions
+\end_layout
+
+\begin_layout Paragraph
+bracks
+\end_layout
+
+\begin_layout Standard
+Takes in two a characters 
+\emph on
+a
+\emph default
+ and 
+\emph on
+b
+\emph default
+ and a parser 
+\emph on
+p
+\emph default
+, and parses the 
+\emph on
+a
+\emph default
+ and 
+\emph on
+b
+\emph default
+ around the parsing of 
+\emph on
+p
+\emph default
+ with the use of 
+\family typewriter
+charT
+\family default
+ and returns the result from 
+\emph on
+p
+\emph default
+.
+\end_layout
+
+\begin_layout Paragraph
+stringT
+\end_layout
+
+\begin_layout Standard
+Parses a given string 
+\emph on
+s
+\emph default
+ and skips white spaces around 
+\emph on
+s.
+\end_layout
+
+\begin_layout Paragraph
+charT
+\end_layout
+
+\begin_layout Standard
+Parses a given character 
+\emph on
+a
+\emph default
+ and skips white spaces around 
+\emph on
+a.
 \end_layout
 
 \begin_layout Subsection
@@ -1440,7 +1944,9 @@ b -> (0,0) @ A @ B
 \begin_inset Quotes erd
 \end_inset
 
-
+: I was unable to deduce from the assignment text what exactly should happen
+ in the case of ..
+ I assume that ..
 \end_layout
 
 \end_inset
@@ -1450,6 +1956,19 @@ b -> (0,0) @ A @ B
 
 \begin_layout Subsection
 The Code
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Comment on the remaining warnings and hints.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsubsection
@@ -1505,6 +2024,19 @@ Any assumptions
 The Code
 \end_layout
 
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Comment on the remaining warnings and hints.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Subsubsection
 The Server API / Interface functions
 \end_layout
@@ -1533,7 +2065,436 @@ The answer to the problem stated at page 13 - top.
 \end_layout
 
 \begin_layout Section
-Appendix A
+Appendix A Tests
+\end_layout
+
+\begin_layout Subsection
+Question 1 Testing
+\end_layout
+
+\begin_layout Standard
+Testing of the parser implemented in the file 
+\emph on
+SalsaParser.hs
+\emph default
+ is done through the module 
+\family typewriter
+Test_Parser
+\family default
+ implemented in the file 
+\emph on
+Test_Parser.hs
+\emph default
+.
+ I decided to only test my implementation through the interface of the 
+\family typewriter
+SalsaParser
+\family default
+ module.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Why ? And why not also the individual parser.
+ -> They are very simple..
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Test_Parser.hs
+\end_layout
+
+\begin_layout Standard
+This test file implements the module 
+\family typewriter
+Test_Parser
+\family default
+ which exports the function 
+\family typewriter
+runAllTests
+\family default
+ which, as its name implies, runs all the implemented tests.
+ This test file uses both QuickCheck and HUnit.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Move to somewhere else ? In introduction?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The test file is divided into three parts; a QuickCheck part, testing the
+ parser with a valid input string, a HUnit part testing parsing of invalid
+ input strings and that the correct precedence and associativity is maintained
+ and a the third part testing that the parsing of files works as intended.
+\end_layout
+
+\begin_layout Paragraph
+Part 1
+\end_layout
+
+\begin_layout Standard
+The QuickCheck part defines a set of lists containing definitions of the
+ different components of the Salsa grammar, not to be confused with the
+ Salsa definitions described in the grammar.
+ These are used when picking a random element to generate, when generating
+ the different components.
+ The generated test cases tend to get rather big and slow down the test
+ I have therefore added a few more cases of 
+\begin_inset Quotes eld
+\end_inset
+
+move
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+const
+\begin_inset Quotes erd
+\end_inset
+
+ respectively to the lists commands and exprList to easily add a greater
+ chance that the generated data won't grow to large.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Bla bla, describing the newtype TestProgram and the property prop_p_Program..
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Limit the code explanation and focus more on the what the test tests for
+ and the assessment that raises from it?
+\end_layout
+
+\begin_layout Plain Layout
+Evt.
+ move the code explanation into the file itself and refer to it.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As already mentioned then the test checks for that any
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Of course not all possible input values but a random subset of the possible
+ input each time the test is run.
+\end_layout
+
+\end_inset
+
+ valid input string is parsed to the correct abstract syntax tree.
+ When generator a test case then nothing is predefined, all values are random
+ generated by QuickCheck Gen monad so everything is tested, although each
+ value is restricted to be a valid value, and every command and expr is
+ within parenthesis meaning that this test does not test for precedence
+ or associativity of the operators.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Use verbose and comment on the generated data, is it good enough?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Conclusion:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So far the tests keeps succeeding every time I run it.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+So what then?
+\end_layout
+
+\end_inset
+
+ I assume that it works for any valid input string, this means for vidents,
+ sidents, white spaces but not precedence and associativity.
+\end_layout
+
+\begin_layout Paragraph
+Part 2
+\end_layout
+
+\begin_layout Standard
+This part defines a lot of HUnit tests.
+ These are divided into two categories: eleven precedence cases and forty-one
+ error cases.
+\end_layout
+
+\begin_layout Standard
+As these are unit tests I will only test a small subset of input area in
+ the individual tests, but based on these tests I assume that it also works
+ for the whole area
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+rephrase?
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subparagraph
+Precedence
+\end_layout
+
+\begin_layout Standard
+The first five precedence test cases shows that the operators '@', '||','+'
+ and '-' are all left associative.
+\end_layout
+
+\begin_layout Standard
+The next two show that '@' has higher precedence than '||'.
+\end_layout
+
+\begin_layout Standard
+Test eight and nine show that '+' and '-' has the same precedence and therefore
+ it is the order that matters, even though the end result will be the same
+ as + and - in themselves are commutative.
+\end_layout
+
+\begin_layout Standard
+The last two shows that '.' has higher precedence than both '+' and '-'.
+\end_layout
+
+\begin_layout Subparagraph
+Error
+\end_layout
+
+\begin_layout Standard
+The first test shows that an empty string cannot be parsed to anything and
+ is therefore not a valid input string.
+\end_layout
+
+\begin_layout Standard
+The next five tests that a sident cannot be used where a vident is expected.
+\end_layout
+
+\begin_layout Standard
+Test case seven to eleven shows that a vident cannot be used in place of
+ a sident.
+\end_layout
+
+\begin_layout Standard
+The next four tests shows some of the invalid characters that cannot be
+ used in a Salsa program.
+\end_layout
+
+\begin_layout Standard
+The next two test cases tests that numbers cannot be used as vidents or
+ sidents.
+\end_layout
+
+\begin_layout Standard
+The following two tests shows that letters cannot be used in place of numbers.
+\end_layout
+
+\begin_layout Standard
+Test case twenty to twenty-two show that not any parenthesis or brackets
+ can be used when surrounding a command, group or point.
+\end_layout
+
+\begin_layout Standard
+The next three test cases shows some of the unsupported operators that does
+ not work for the Salsa language.
+\end_layout
+
+\begin_layout Standard
+The next four tests shows that a reserved word nor a colour can be used
+ in place of a sident.
+\end_layout
+
+\begin_layout Standard
+The thirtieth test case shows that a colour must be one of the specified
+ colour names.
+\end_layout
+
+\begin_layout Standard
+Test next four test cases shows that with lacking white spaces you either
+ get an error or an unexpected program.
+\end_layout
+
+\begin_layout Standard
+Test number 35 shows that when defining a group the given list must be non-empty.
+\end_layout
+
+\begin_layout Standard
+Test case number 36 to 38 show that the Salsa language is case-sensitive.
+\end_layout
+
+\begin_layout Standard
+The next two test cases show that negative integers are not supported by
+ the grammar.
+\end_layout
+
+\begin_layout Standard
+The last test show that the above restriction can be bypassed by simply
+ creating a expression that subtracts a number from a smaller number, which
+ would produce a negative integer when executed.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+All these tests return the expected result and I therefore assume that precedenc
+e and associativity works as intended and adheres to the grammar, furthermore
+ that the parser returns expected error with a given invalid input string.
+\end_layout
+
+\begin_layout Paragraph
+Part 3
+\end_layout
+
+\begin_layout Standard
+This third part contains a set of five unit tests for testing the 
+\family typewriter
+parseFile
+\family default
+ function and that it works as intended, it works as intended when parsing
+ the content of the file with 
+\family typewriter
+parseString
+\family default
+ yields the same result as parsing the file with 
+\family typewriter
+parseFile
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test shows that an empty file is parsed as expected.
+\end_layout
+
+\begin_layout Standard
+The second and the third test shows that valid Salsa files are also parsed
+ as expected.
+\end_layout
+
+\begin_layout Standard
+The fourth test shows that a invalid Salsa file is parsed as expected.
+\end_layout
+
+\begin_layout Standard
+The fifth test case show that when parsing a file that does not exist then
+ it returns the expected IO exception.
+ Note that if the file do exist for some reason then this test will acts
+ as a test on the content instead.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+Based on these few simple tests that returned the expected values, I assume
+ that function 
+\family typewriter
+parseFile
+\family default
+ works as intended.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+Furthermore based on the tests described above and that they all return
+ the expected results, I assume that my grammar and my implementation of
+ the 
+\family typewriter
+SalsaParser
+\family default
+ module works as intended.
+\end_layout
+
+\begin_layout Subsection
+Question 2 Testing
+\end_layout
+
+\begin_layout Subsection
+Question 3 Testing
+\end_layout
+
+\begin_layout Section
+Appendix B Code
 \end_layout
 
 \end_body
