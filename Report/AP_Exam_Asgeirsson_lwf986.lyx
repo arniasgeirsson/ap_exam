@@ -218,7 +218,7 @@ Fixing the grammar
 \begin_layout Standard
 The given grammar is ambiguous and this must be dealt with before proceeding
  with the actual parser.
- The given grammar is as follows and we shall call this G1.
+ The given grammar is as follows and we shall call this G0.
 \end_layout
 
 \begin_layout LyX-Code
@@ -271,6 +271,343 @@ Command ::= SIdents ’->’ Pos
 
 \begin_layout LyX-Code
     | Command ’||’ Command
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | VIdent VIdents .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent SIdents .
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’y’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
+\begin_layout Subsubsection
+Precedence and Associativity
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- What is what?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is assumed that the four operators +, -, @ and || all are left-associative.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Remove @ ? Wait for discu..
+ answer.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- What has precedence?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I assume that + and - have the same precedence, and as the assignment text
+ specifies then @ has higher precedence than ||, meaning that if we have
+ the following pseudo input 
+\begin_inset Quotes eld
+\end_inset
+
+cmd || cmd @ Vident
+\begin_inset Quotes erd
+\end_inset
+
+ then this corresponds to the input 
+\begin_inset Quotes eld
+\end_inset
+
+cmd || ( cmd @ Vident )
+\begin_inset Quotes erd
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+I further assume that .
+ has higher precedence than + and - meaning that 
+\begin_inset Quotes eld
+\end_inset
+
+r .
+ x + c .
+ y
+\begin_inset Quotes erd
+\end_inset
+
+ is the same as 
+\begin_inset Quotes eld
+\end_inset
+
+(r .
+ x) + (c .
+ y)
+\begin_inset Quotes erd
+\end_inset
+
+.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Needed to assume this?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- Do we need to fix it here in the grammar? Is that even possible? No, but
+ we could help it, although the case is very small and might as well fix
+ it by using the operators of ReadP ?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The associativity is already in place and the precedence of +, - and .
+ is also already supported by the current grammar.
+ What is missing is that @ and || have the correct precedence.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+How do we then ensure this?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To do so we followed a simple algorithm:
+\end_layout
+
+\begin_layout LyX-Code
+A ::= A a1 A
+\end_layout
+
+\begin_layout LyX-Code
+    | A a2 A
+\end_layout
+
+\begin_layout LyX-Code
+    | a3 .
+\end_layout
+
+\begin_layout LyX-Code
+->
+\end_layout
+
+\begin_layout LyX-Code
+A ::= A a1 B
+\end_layout
+
+\begin_layout LyX-Code
+    | B .
+\end_layout
+
+\begin_layout LyX-Code
+B ::= B a2 C
+\end_layout
+
+\begin_layout LyX-Code
+    | C .
+\end_layout
+
+\begin_layout LyX-Code
+C ::= a3 .
+\end_layout
+
+\begin_layout Standard
+where a1 & a2 are terminals, a3 is something 'else'
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Skriv mere prof
+\end_layout
+
+\end_inset
+
+ and A,B,C are non-terminals.
+ Now a2 will have higher precedence than a1.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Reference G0 somewhere.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The following is the resulting grammar and we shall call this G1
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom
+\end_layout
+
+\begin_layout LyX-Code
+    | DefCom DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= Command ’||’ Command2
+\end_layout
+
+\begin_layout LyX-Code
+    | Command2 .
+\end_layout
+
+\begin_layout LyX-Code
+Command2 ::= Command2 ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | Command3 .
+\end_layout
+
+\begin_layout LyX-Code
+Command3 ::= SIdents ’->’ Pos
 \end_layout
 
 \begin_layout LyX-Code
@@ -453,23 +790,27 @@ Definition ::= ’viewdef’ VIdent Expr Expr
 \end_layout
 
 \begin_layout LyX-Code
-Command ::= SIdents ’->’ Pos
+Command ::= Command ’||’ Command2
 \end_layout
 
 \begin_layout LyX-Code
-    | ’{’ Command ’}’
+    | Command2 .
 \end_layout
 
 \begin_layout LyX-Code
-    | Command Rest .
+Command2 ::= Command2 ’@’ VIdent
 \end_layout
 
 \begin_layout LyX-Code
-Rest ::= ’@’ VIdent
+    | Command3 .
 \end_layout
 
 \begin_layout LyX-Code
-    | ’||’ Command .
+Command3 ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
 \end_layout
 
 \begin_layout LyX-Code
@@ -643,15 +984,11 @@ Definition ::= ’viewdef’ VIdent Expr Expr
 \end_layout
 
 \begin_layout LyX-Code
-Command ::= SIdents ’->’ Pos Command'
+Command ::= Command2 Command' .
 \end_layout
 
 \begin_layout LyX-Code
-    | ’{’ Command ’}’ Command' .
-\end_layout
-
-\begin_layout LyX-Code
-Command' ::= Rest Command'
+Command' ::= ’||’ Command2 Command'
 \end_layout
 
 \begin_layout LyX-Code
@@ -659,11 +996,23 @@ Command' ::= Rest Command'
 \end_layout
 
 \begin_layout LyX-Code
-Rest ::= ’@’ VIdent
+Command2 ::= Command3 Command2' .
 \end_layout
 
 \begin_layout LyX-Code
-    | ’||’ Command .
+Command2' ::= ’@’ VIdent Command2'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Command3 ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
 \end_layout
 
 \begin_layout LyX-Code
@@ -740,20 +1089,6 @@ Rest3 ::= ’.’ ’x’
 
 \begin_layout LyX-Code
 Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
-\end_layout
-
-\begin_layout Subsubsection
-Precedence
-\end_layout
-
-\begin_layout Standard
-- What has precedence?
-\end_layout
-
-\begin_layout Standard
-- Do we need to fix it here in the grammar? Is that even possible? No, but
- we could help it, although the case is very small and might as well fix
- it by using the operators of ReadP ?
 \end_layout
 
 \begin_layout Subsection
@@ -1087,6 +1422,27 @@ All of these can be checked statically prior to executing the Salsa program,
  Writing the static check, as a separate pass over the abstract syntax tree,
  is not part of the exam.
 \begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Specify what should happen with 
+\begin_inset Quotes eld
+\end_inset
+
+b -> (0,0) @ A @ B
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
 \end_inset
 
 

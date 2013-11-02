@@ -1,7 +1,11 @@
-module SalsaParser (parseString, parseFile) where
+module SalsaParser (parseString, parseFile, Error (..)) where
 
 import SalsaAst
 import Text.ParserCombinators.ReadP
+import qualified Test.QuickCheck as QC
+import Test.HUnit
+import Control.Exception
+import Control.Monad
 
 -- ?
 runParser :: ReadP Program
@@ -80,35 +84,72 @@ pDefinition = do
     vids <- bracks '[' pVIdents ']'
     return $ Group vid vids
 
-
 pCommand :: ReadP Command
 pCommand = do
-  sids <- pSIdents
-  stringT "->"
-  pos <- pPos
-  pCommand' $ Move sids pos
-  +++
-  do
-    cmd <- bracks '{' pCommand '}'
-    pCommand' cmd
+  cmd2 <- pCommand2
+  pCommand' cmd2
 
 pCommand' :: Command -> ReadP Command
 pCommand' iV = do
-  cmd <- pRest iV
-  pCommand' cmd
+  stringT "||"
+  cmd2 <- pCommand2
+  pCommand' $ Par iV cmd2
   +++
   return iV
 
-pRest :: Command -> ReadP Command
-pRest iV = do
+pCommand2 :: ReadP Command
+pCommand2 = do
+  cmd3 <- pCommand3
+  pCommand2' cmd3
+
+pCommand2' :: Command -> ReadP Command
+pCommand2' iV = do
   charT '@'
   vid <- pVIdent
-  return $ At iV vid
+  pCommand2' $ At iV vid
   +++
-  do
-    stringT "||"
-    cmd <- pCommand
-    return $ Par iV cmd
+  return iV
+
+pCommand3 :: ReadP Command
+pCommand3 = do
+  sids <- pSIdents
+  stringT "->"
+  pos <- pPos
+  return $ Move sids pos
+  +++
+  bracks '{' pCommand '}'
+
+
+
+
+-- pCommand :: ReadP Command
+-- pCommand = do
+--   sids <- pSIdents
+--   stringT "->"
+--   pos <- pPos
+--   pCommand' $ Move sids pos
+--   +++
+--   do
+--     cmd <- bracks '{' pCommand '}'
+--     pCommand' cmd
+
+-- pCommand' :: Command -> ReadP Command
+-- pCommand' iV = do
+--   cmd <- pRest iV
+--   pCommand' cmd
+--   +++
+--   return iV
+
+-- pRest :: Command -> ReadP Command
+-- pRest iV = do
+--   charT '@'
+--   vid <- pVIdent
+--   return $ At iV vid
+--   +++
+--   do
+--     stringT "||"
+--     cmd <- pCommand
+--     return $ Par iV cmd
 
 pVIdents :: ReadP [Ident]
 pVIdents = do
@@ -298,3 +339,41 @@ parseFile filename = do
   content <- readFile filename
   return $ parseString content
 
+
+---------- Tests ----------
+
+-- Test charT parser
+
+--prop_charT :: Char -> Bool
+--prop_charT c = (readP_to_S charT [c]) == [("","")]
+
+-- parseQC :: ReadP a -> String -> Either String a
+-- parseQC parser s =
+--   case readP_to_S parser s of
+--     [(result, "")] -> Right result
+--     _ -> Left "Wrong.."
+
+-- newtype TestInteger = TestInteger (String, Either String Integer)
+--                     deriving(Eq, Show)
+
+-- instance QC.Arbitrary TestInteger where
+--   arbitrary = do
+--     n <- QC.listOf1 $ QC.elements ['0'..'9']
+--     return $ TestInteger (n,Right (read n::Integer)) 
+
+-- prop_pInteger :: TestInteger -> Bool
+-- prop_pInteger (TestInteger (i,o)) =
+--   (parseQC pInteger i) == o
+
+-- -- prop_pBracks -> c1 parser s c2 == parser s
+
+-- runQCTests :: IO ()
+-- runQCTests = do
+--   QC.quickCheck prop_pInteger
+
+
+-- runHUTests = runTestTT $ TestList [case_bracks]
+
+-- case_bracks = TestLabel "bracks test cases" $ TestList [test_bracks_Empty]
+
+-- test_bracks_Empty = TestCase $ assertEqual "" (Left $ NoParsePossible ) (parseString "( )") 

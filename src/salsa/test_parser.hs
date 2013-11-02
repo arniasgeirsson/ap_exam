@@ -1,28 +1,328 @@
-module Test_Parser where
+module Test_Parser (runAllTests) where
 
 import Test.HUnit
 import SalsaAst
 import SalsaParser
 import qualified Test.QuickCheck as QC
 import Control.Monad
+import Control.Exception
 
-main = runTestTT $ TestList [definitionCases]
+------------------------------------------------------------
+------------------ Interface to run tests ------------------
+------------------------------------------------------------
 
-definitionCases = TestLabel "Test cases for definitions" (TestList [test_viewdef])
+runAllTests :: IO Bool
+runAllTests = do
+  putStrLn "-------------------- Running quickcheck tests --------------------"
+  putStrLn $ "1. Testing if the parser parses the expected outputs from random"
+    ++" valid input strings"
+  putStrLn "Might take a few seconds ...\n"
+  runQCTest
+  putStrLn "\n-------------------- Running hunit tests -------------------------"
+  putStrLn "2. Testing if the precedence and associativity works as intended\n"
+  _ <- runTestTT $ TestList [precedenceCases]
+  putStrLn $ "\n3. Testing if the expected errors occur with specific invalid"
+    ++" input strings\n"
+  _ <- runTestTT $ TestList [errorCases]
+  putStrLn "\n-------------------- Running unit tests --------------------------"
+  putStrLn "4. Testing if an empty file parses as expected\n"
+  b1 <- testF1
+  print b1
+  putStrLn "\n5. Testing if an simple Salsa file parses as expected\n"
+  b2 <- testF2
+  print b2
+  putStrLn "\n6. Testing if an more advanced Salsa file parses as expected\n"
+  b3 <- testF3
+  print b3
+  putStrLn "\n7. Testing if a non-existing file raises the expected error\n"
+  testF4
 
-test_viewdef = TestCase $ assertEqual "Should return a ViewDef definition"
-               (Right [(Def $ Viewdef "View" (Const 20) (Const 40))])
-               (parseString "viewdef View 20 40")
+
+-- TODO fill out 'd' !!!!
+
+------------------------------------------------------------
+----------------------- HUnit tests ------------------------
+--------------------- Precedence tests ---------------------
+------------------------------------------------------------
+  
+precedenceCases :: Test
+precedenceCases = TestLabel "Test cases for precedence"
+                  $ TestList [testP1,testP2,testP3,testP4,testP5,
+                              testP6,testP7,testP8,testP9,testP10,
+                              testP11]
+
+-- Show that @ and || are both left associative
+testP1 :: Test
+testP1 = let s = "a -> (0,0) @ A @ B @ C"
+             a = "{{{ a -> (0,0) @ A } @ B } @ C }"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP2 :: Test
+testP2 = let s = "a -> (0,0) || b->(0,0) || c->(0,0)"
+             a = "{{{a -> (0,0)} || b->(0,0)} || c->(0,0)}"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+
+-- Show that @ has higher precedence than ||
+testP3 :: Test
+testP3 = let s = "a -> (0,0) || b->(0,0) @ A"
+             a = "a -> (0,0) || {b->(0,0) @ A}"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP4 :: Test
+testP4 = let s = "a -> (0,0) || b->(0,0) @ A || c->(0,0) @ B @ C"
+             a = "a -> (0,0) || {b->(0,0) @ A} || {{c->(0,0) @ B} @ C}"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+
+-- Left associativity of + and -
+testP5 :: Test
+testP5 = let s = "viewdef A 1 1+5+2"
+             a = "viewdef A 1 (1+5)+2"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP6 :: Test
+testP6 = let s = "viewdef A 1 1-5-2"
+             a = "viewdef A 1 (1-5)-2"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP7 :: Test
+testP7 = let s = "viewdef A 1 1+5-2-5"
+             a = "viewdef A 1 ((1+5)-2)-5"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+
+-- Show that + and - has the same precedence (ie it maintains its order)
+testP8 :: Test
+testP8 = let s = "viewdef A 1 1+5-4"
+             a = "viewdef A 1 ((1+5)-4)"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP9 :: Test
+testP9 = let s = "viewdef A 1 1-5+4"
+             a = "viewdef A 1 ((1-5)+4)"
+         in TestCase $ assertEqual "" (parseString a) (parseString s)
+
+-- Show that . has higher precedence than + and -
+testP10 :: Test
+testP10 = let s = "viewdef A 1 r.x + c.y"
+              a = "viewdef A 1 (r.x) + (c.y)"
+          in TestCase $ assertEqual "" (parseString a) (parseString s)
+testP11 :: Test
+testP11 = let s = "viewdef A 1 r.x - c.y"
+              a = "viewdef A 1 (r.x) - (c.y)"
+          in TestCase $ assertEqual "" (parseString a) (parseString s)
+
+------------------------------------------------------------
+----------------------- Error tests ------------------------
+------------------------------------------------------------
+errorCases :: Test
+errorCases = TestLabel "Test cases for invalid input strings"
+             $ TestList [testE1, testE2, testE3, testE4, testE5,
+                         testE6, testE7, testE8, testE9, testE10,
+                         testE11,testE12,testE13,testE14, testE15,
+                         testE16,testE17,testE18,testE19,testE20,
+                         testE21,testE22,testE23,testE24,testE25,
+                         testE26,testE27,testE28,testE29,testE30,
+                         testE31,testE32,testE33,testE34,testE35,
+                         testE36,testE37,testE38,testE39,testE40,
+                         testE41]
+
+-- Parse empty string
+testE1 :: Test
+testE1 = let s = ""
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using sident in place of vident
+testE2 :: Test
+testE2 = let s = "viewdef sident 4 5"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE3 :: Test
+testE3 = let s = "view sident"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE4 :: Test
+testE4 = let s = "group sident [A,B,C]"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE5 :: Test
+testE5 = let s = "group Vident [A,B,sident]"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE6 :: Test
+testE6 = let s = "{ a -> (1,1) } @ sident"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using vident in place of sident
+testE7 :: Test
+testE7 = let s = "rectangle Vident 1 2 3 4 green"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE8 :: Test
+testE8 = let s = "circle Vident 1 2 3 red"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE9 :: Test
+testE9 = let s = "{ Vident -> (1,1) } @ A"
+         in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE10 :: Test
+testE10 = let s = "{ a b c Vident -> (1,1) } @ A"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE11 :: Test
+testE11 = let s = "viewdef A 1 (1 + Vident . x)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using wrong types of characters
+testE12 :: Test
+testE12 = let s = "viewdef _A 1 2"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE13 :: Test
+testE13 = let s = "viewdef A+a 1 2"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE14 :: Test
+testE14 = let s = "view Bæ"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE15 :: Test
+testE15 = let s = "circle a 1 2 (a . z) red"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using numbers instead of letters, (same as using wrong characters?)
+testE16 :: Test
+testE16 = let s = "view 5"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE17 :: Test
+testE17 = let s = "group 2 [ A ]"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using letters instead of numbers
+testE18 :: Test
+testE18 = let s = "viewdef A b 4"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE19 :: Test
+testE19 = let s = "viewdef A 4 (a+2)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using wrong parenthesis
+testE20 :: Test
+testE20 = let s = "( a -> (0,0) )"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE21 :: Test
+testE21 = let s = "group A { B }"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE22 :: Test
+testE22 = let s = "{ a -> [0,0] }"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using non-existing operator
+testE23 :: Test
+testE23 = let s = "a -> - (1,2)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE24 :: Test
+testE24 = let s = "viewdef A 1 (2 * 4)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE25 :: Test
+testE25 = let s = "circle a 3 1 ( a , x) red"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using a reserved word as sident (res+colour)
+testE26 :: Test
+testE26 = let s = "rectangle viewdef 1 2 3 4 green"
+            in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE27 :: Test
+testE27 = let s = "rectangle rectangle 1 2 3 4 green"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE28 :: Test
+testE28 = let s = "circle a 1 2 (1 + group . x)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE29 :: Test
+testE29 = let s = "green -> (6,66)"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Using invalid colour name
+testE30 :: Test
+testE30 = let s = "circle a 1 2 3 purple"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Wrong whitespace inbetween stuff
+testE31 :: Test
+testE31 = let s = "circle a 31 ( a , x) red"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE32 :: Test
+testE32 = let s = "circlea 3 1 ( a , x) red"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE33 :: Test
+testE33 = let s = "viewdefA 1 2"
+          in TestCase $ assertEqual ""
+             (Right [Def $ Viewdef "A" (Const 1) (Const 2)])
+             (parseString s)
+testE34 :: Test
+testE34 = let s = "group A [BCD]"
+          in TestCase $ assertEqual ""
+             (Right [Def $ Group "A" ["BCD"]])
+             (parseString s)
+
+-- Grouping zero vidents
+testE35 :: Test
+testE35 = let s = "group A [ ]"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Show that the salsa is case sensitive
+testE36 :: Test
+testE36 = let s = "Viewdef A 1 2"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE37 :: Test
+testE37 = let s = "Group A [ B ]"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE38 :: Test
+testE38 = let s = "rectangle a 1 2 3 4 Orange"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Use negative values
+testE39 :: Test
+testE39 = let s = "viewdef A -2 5"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+testE40 :: Test
+testE40 = let s = "viewdef A (-2) 5"
+          in TestCase $ assertEqual "" (Left $ NoParsePossible s) (parseString s)
+
+-- Show that simple expression can create negative values to by pass the
+-- integer restriction
+testE41 :: Test
+testE41 = let s = "viewdef A (0-2) 5"
+          in TestCase $ assertEqual ""
+             (Right [Def $ Viewdef "A" (Minus (Const 0) (Const 2)) (Const 5)])
+             (parseString s)
+
+-- Show the UnexpectedRemainder error
+-- Umm how?
+
+------------------------------------------------------------
+------------------------ Unit tests ------------------------
+--------------------- Parse file tests ---------------------
+------------------------------------------------------------
+
+-- Parse empty file
+testF1 :: IO Bool
+testF1 = testFile "test_files/empty.salsa"
+
+-- Parse simple salsa
+testF2 :: IO Bool
+testF2 = testFile "test_files/simple.salsa"
+
+-- Parse multi salsa
+testF3 :: IO Bool
+testF3 = testFile "test_files/multi.salsa"
+
+-- Parse non-existing file
+-- Note that if the file does exist then it returns the parse from there
+-- So this does only test the intended if the file indeed does not exist.
+testF4 :: IO Bool
+testF4 = catch (testFile "test_files/doesNotExist.salsa")
+         (\e -> do let _ = e::IOException
+                   return True)
+
+-- A helper function to compare the results from parseString and parseFile
+testFile :: String -> IO Bool
+testFile path_ = do
+  content <- readFile path_
+  output <- parseFile path_
+  return $ parseString content == output
 
 
--- TODO remove useless unit test above
--- TODO add unit tests for precedence
--- TODO add unit tests for error prone parsings
--- TODO add unit tests for parseFile
+------------------------------------------------------------
+--------------------- QuickCheck Tests ---------------------
+----------------- Test valid input strings -----------------
+------------------------------------------------------------
 
-newtype TestProgram = TestProgram (String, Either Error Program)
-                    deriving (Show, Eq)
-
+----------------------- Definitions ------------------------
+    
 identarr :: String
 identarr = ['A'..'Z']++['a'..'z']++['0'..'9']++"_"
 
@@ -30,10 +330,12 @@ definitions :: [String]
 definitions = ["viewdef","rectangle", "circle", "view", "group"]
 
 commands :: [String]
-commands = ["move","move","move","move","at","par"]
+commands = ["move","at","par",
+            "move","move","move"]
 
 colours :: [(String,Colour)]
-colours = [("blue",Blue), ("plum",Plum), ("red",Red), ("green",Green), ("orange",Orange)]
+colours = [("blue",Blue), ("plum",Plum), ("red",Red),
+           ("green",Green), ("orange",Orange)]
 
 -- TODO add all types of whiteSpace
 whiteSpaces :: [String]
@@ -42,160 +344,177 @@ whiteSpaces = [" "]
 numbers :: String
 numbers = ['0'..'9']
 
-expr_list = ["plus", "minus", "const","const","const","const","const", "xproj", "yproj"]
+exprList :: [String]
+exprList = ["plus", "minus", "const", "xproj", "yproj",
+            "const","const","const","const"]
 
+posList :: [String]
+posList = ["abs","rel"]
+
+------------------------ Test type -------------------------
+
+newtype TestProgram = TestProgram (String, Either Error Program)
+                    deriving (Show, Eq)
 
 instance QC.Arbitrary TestProgram where
   arbitrary = do
     defcoms <- QC.listOf1 $ QC.elements $ definitions++commands
-    (input,output) <- gen_many_defcom defcoms
+    (input,output) <- genManyDefcom defcoms
     return $ TestProgram (input, Right output)
+
+------------------------- Property -------------------------
 
 -- TODO optimize it, it is very slow
 prop_pProgram :: TestProgram -> Bool
-prop_pProgram (TestProgram (i,o)) = (parseString i) == o
+prop_pProgram (TestProgram (i,o)) = parseString i == o
 
-runQCTests1 :: IO ()
-runQCTests1 = do QC.quickCheck prop_pProgram
+---------------------- QC test runner ----------------------
 
-gen_many_defcom :: [String] -> QC.Gen (String,[DefCom])
-gen_many_defcom words = do
-  result <- mapM gen_defcom words
+runQCTest :: IO ()
+runQCTest = QC.quickCheck prop_pProgram
+
+------------------------ Generators ------------------------
+
+genManyDefcom :: [String] -> QC.Gen (String,[DefCom])
+genManyDefcom [] = error "Cannot parse an empty list of definitions or commands"
+genManyDefcom words_ = do
+  result <- mapM genDefcom words_
   foldM f ("",[]) result
   where
-    f (acci,acco) (i,o) = return $ (acci++i,acco++o)
+    f (acci,acco) (i,o) = return (acci++i,acco++o)
 
 -- TODO there is error when removing the parenthesis {}
-gen_defcom :: String -> QC.Gen (String, [DefCom])
-gen_defcom "viewdef" = do
-  vident <- gen_vident
-  (w,expw) <- gen_expr
-  (h,exph) <- gen_expr
-  input <- insert_whiteSpaces1 ["viewdef",vident,w,h]
+genDefcom :: String -> QC.Gen (String, [DefCom])
+genDefcom "viewdef" = do
+  vident <- genVident
+  (w,expw) <- genExpr
+  (h,exph) <- genExpr
+  input <- insertWhiteSpaces1 ["viewdef",vident,w,h]
   return (input, [Def $ Viewdef vident expw exph])
-gen_defcom "rectangle" = do
-  sident <- gen_sident
-  (x,expx) <- gen_expr
-  (y,expy) <- gen_expr
-  (w,expw) <- gen_expr
-  (h,exph) <- gen_expr
-  (col,col_type) <- gen_colour
-  input <- insert_whiteSpaces1 ["rectangle",sident,x,y,w,h,col]
+genDefcom "rectangle" = do
+  sident <- genSident
+  (x,expx) <- genExpr
+  (y,expy) <- genExpr
+  (w,expw) <- genExpr
+  (h,exph) <- genExpr
+  (col,col_type) <- genColour
+  input <- insertWhiteSpaces1 ["rectangle",sident,x,y,w,h,col]
   return (input, [Def $ Rectangle sident expx expy expw exph col_type])
-gen_defcom "circle" = do
-  sident <- gen_sident
-  (x,expx) <- gen_expr
-  (y,expy) <- gen_expr
-  (r,expr) <- gen_expr
-  (col,col_type) <- gen_colour
-  input <- insert_whiteSpaces1 ["circle",sident,x,y,r,col]
+genDefcom "circle" = do
+  sident <- genSident
+  (x,expx) <- genExpr
+  (y,expy) <- genExpr
+  (r,expr) <- genExpr
+  (col,col_type) <- genColour
+  input <- insertWhiteSpaces1 ["circle",sident,x,y,r,col]
   return (input, [Def $ Circle sident expx expy expr col_type])
-gen_defcom "view" = do
-  vident <- gen_vident
-  input <- insert_whiteSpaces1 ["view",vident]
+genDefcom "view" = do
+  vident <- genVident
+  input <- insertWhiteSpaces1 ["view",vident]
   return (input, [Def $ View vident])
-gen_defcom "group" = do
-  vident <- gen_vident
-  vidents <- QC.listOf1 gen_vident
-  input <- insert_whiteSpaces1 $ ["group",vident,"["]++vidents++["]"]
+genDefcom "group" = do
+  vident <- genVident
+  vidents <- QC.listOf1 genVident
+  input <- insertWhiteSpaces1 $ ["group",vident,"["]++vidents++["]"]
   return (input, [Def $ Group vident vidents])
-gen_defcom "move" = do
-  sidents <- QC.listOf1 gen_sident
-  (pos,expPos) <- gen_pos
-  input <- insert_whiteSpaces1 $ ["{"]++sidents++["->",pos,"}"]
+genDefcom "move" = do
+  sidents <- QC.listOf1 genSident
+  (pos,expPos) <- genPos
+  input <- insertWhiteSpaces1 $ ["{"]++sidents++["->",pos,"}"]
   return (input, [Com $ Move sidents expPos])
-gen_defcom "at" = do
+genDefcom "at" = do
   word <- QC.elements commands
-  (cmd,Com cmdexp:[]) <- gen_defcom word
-  vident <- gen_vident
-  input <- insert_whiteSpaces1 ["{",cmd,"@",vident,"}"]
+  (cmd,Com cmdexp:[]) <- genDefcom word
+  vident <- genVident
+  input <- insertWhiteSpaces1 ["{",cmd,"@",vident,"}"]
   return (input, [Com $ At cmdexp vident])
-gen_defcom "par" = do
+genDefcom "par" = do
   word1 <- QC.elements commands
   word2 <- QC.elements commands
-  (cmd1,Com cmdexp1:[]) <- gen_defcom word1
-  (cmd2,Com cmdexp2:[]) <- gen_defcom word2
-  input <- insert_whiteSpaces ["{",cmd1,"||",cmd2,"}"]
+  (cmd1,Com cmdexp1:[]) <- genDefcom word1
+  (cmd2,Com cmdexp2:[]) <- genDefcom word2
+  input <- insertWhiteSpaces ["{",cmd1,"||",cmd2,"}"]
   return (input, [Com $ Par cmdexp1 cmdexp2])
+genDefcom s = error $ "Cannot parse "++s++" into a DefCom"
 
-pos_list = ["abs","rel"]
+genPos :: QC.Gen (String, Pos)
+genPos = do
+  pos <- QC.elements posList
+  _genPos pos
 
-gen_pos :: QC.Gen (String, Pos)
-gen_pos = do
-  pos <- QC.elements pos_list
-  gen_pos1 pos
-
-gen_pos1 :: String -> QC.Gen (String, Pos)
-gen_pos1 "abs" = do
-  (x,expx) <- gen_expr
-  (y,expy) <- gen_expr
-  input <- insert_whiteSpaces ["(",x,",",y,")"]
+_genPos :: String -> QC.Gen (String, Pos)
+_genPos "abs" = do
+  (x,expx) <- genExpr
+  (y,expy) <- genExpr
+  input <- insertWhiteSpaces ["(",x,",",y,")"]
   return (input, Abs expx expy)
-gen_pos1 "rel" = do
-  (x,expx) <- gen_expr
-  (y,expy) <- gen_expr
-  input <- insert_whiteSpaces ["+","(",x,",",y,")"]
+_genPos "rel" = do
+  (x,expx) <- genExpr
+  (y,expy) <- genExpr
+  input <- insertWhiteSpaces ["+","(",x,",",y,")"]
   return (input, Rel expx expy)
+_genPos s = error $ "Cannot parse "++s++" into an Pos"
 
-gen_expr :: QC.Gen (String, Expr)
-gen_expr = do
-  expr <- QC.elements expr_list
-  gen_expr1 expr
+genExpr :: QC.Gen (String, Expr)
+genExpr = do
+  expr <- QC.elements exprList
+  _genExpr expr
 
 -- TODO there is error when removing the parenthesis ()
-gen_expr1 :: String -> QC.Gen (String, Expr)
-gen_expr1 "plus" = do
-  (e1,exp1) <- gen_expr
-  (e2,exp2) <- gen_expr
-  input <- insert_whiteSpaces ["(",e1,"+",e2,")"]
+_genExpr :: String -> QC.Gen (String, Expr)
+_genExpr "plus" = do
+  (e1,exp1) <- genExpr
+  (e2,exp2) <- genExpr
+  input <- insertWhiteSpaces ["(",e1,"+",e2,")"]
   return (input, Plus exp1 exp2)
-gen_expr1 "minus" = do
-  (e1,exp1) <- gen_expr
-  (e2,exp2) <- gen_expr
-  input <- insert_whiteSpaces ["(",e1,"-",e2,")"]
+_genExpr "minus" = do
+  (e1,exp1) <- genExpr
+  (e2,exp2) <- genExpr
+  input <- insertWhiteSpaces ["(",e1,"-",e2,")"]
   return (input, Minus exp1 exp2)
-gen_expr1 "const" = do
-  n <- gen_number
-  input <- insert_whiteSpaces ["(",n,")"]
+_genExpr "const" = do
+  n <- genNumber
+  input <- insertWhiteSpaces ["(",n,")"]
   return (input, Const (read n::Integer))
-gen_expr1 "xproj" = do
-  sident <- gen_sident
-  input <- insert_whiteSpaces ["(",sident,".","x",")"]
+_genExpr "xproj" = do
+  sident <- genSident
+  input <- insertWhiteSpaces ["(",sident,".","x",")"]
   return (input, Xproj sident)
-gen_expr1 "yproj" = do
-  sident <- gen_sident
-  input <- insert_whiteSpaces ["(",sident,".","y",")"]
+_genExpr "yproj" = do
+  sident <- genSident
+  input <- insertWhiteSpaces ["(",sident,".","y",")"]
   return (input, Yproj sident)
-  
-gen_colour :: QC.Gen (String,Colour)
-gen_colour = QC.elements colours
+_genExpr s = error $ "Cannot parse "++s++" into an Expr"
 
-gen_vident :: QC.Gen String
-gen_vident = do
+genColour :: QC.Gen (String,Colour)
+genColour = QC.elements colours
+
+genVident :: QC.Gen String
+genVident = do
   h <- QC.elements ['A'..'Z']
   rest <- QC.listOf $ QC.elements identarr
   return $ h:rest
 
-gen_sident :: QC.Gen String
-gen_sident = do
+genSident :: QC.Gen String
+genSident = do
   h <- QC.elements ['a'..'z']
   rest <- QC.listOf $ QC.elements identarr
   return $ h:rest
 
-gen_number :: QC.Gen String
-gen_number = QC.listOf1 $ QC.elements numbers
+genNumber :: QC.Gen String
+genNumber = QC.listOf1 $ QC.elements numbers
 
-insert_whiteSpaces :: [String] -> QC.Gen String
-insert_whiteSpaces = ws_helper QC.listOf
+insertWhiteSpaces :: [String] -> QC.Gen String
+insertWhiteSpaces = wsHelper QC.listOf
 
-insert_whiteSpaces1 :: [String] -> QC.Gen String
-insert_whiteSpaces1 = ws_helper QC.listOf1
+insertWhiteSpaces1 :: [String] -> QC.Gen String
+insertWhiteSpaces1 = wsHelper QC.listOf1
 
-ws_helper :: (QC.Gen String -> QC.Gen [String]) -> [String] -> QC.Gen String
-ws_helper m words = do
+wsHelper :: (QC.Gen String -> QC.Gen [String]) -> [String] -> QC.Gen String
+wsHelper m words_ = do
   initWhite <- m $ QC.elements whiteSpaces
-  foldM f (concat initWhite) words
+  foldM f (concat initWhite) words_
   where
     f acc word = do
-      whiteSpaces <- QC.listOf1 $ QC.elements whiteSpaces
-      return $ acc++word++(concat whiteSpaces)
+      whitespaces <- QC.listOf1 $ QC.elements whiteSpaces
+      return $ acc++word++concat whitespaces
