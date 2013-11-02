@@ -44,11 +44,11 @@ commit_t(AT, Ref) -> put_your_code.
 rpc(Pid, Request) ->
     Pid ! {self(), Request},
     receive
-        {self(), Response} -> Response
+        {Pid, Response} -> Response
     end.
 
-reply(From, Msg) ->
-    From ! Msg.
+reply(From,  Msg) ->
+    From ! {self(), Msg}.
 
 reply_ok(From) ->
     reply(From, ok).
