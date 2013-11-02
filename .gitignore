@@ -8,3 +8,4 @@ cabal-dev
 *~
 *#
 .DS_Store
+*beam
