@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% Student name:
-%%% Student KU-id:
+%%% Student name: Arni Asgeirsson
+%%% Student KU-id: lwf986
 %%%-------------------------------------------------------------------
 
 -module(at_server).
@@ -9,21 +9,27 @@
 
 % Interface functions
 -export([start/1, stop/1, begin_t/1, doquery/2, query_t/3, update_t/3, commit_t/2]).
-
+% Extra interface functions
+-export([get_pids/1]).
 % gen_server callback functions
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3, format_status/2]).
-
-% Testing
--export([test/0]).
 
 %%%-------------------------------------------------------------------
 %%% API
 %%%-------------------------------------------------------------------
 
+%% COM I always assume that AT is a valid at_server process id, this is never
+%% checked and if called with invalid value may result in unexpected error, behaviour or 
+%% and endless waiting for a never responding process.
+
+%% COM prove when something is blocking or non-blocking
+
+%% TODO only one can be started at a time?
+%% -> COM fix is to not give it a name? What is the wanted behaviour? {local, some_name}
 start(State) ->
     %% TODO use start or start_link?
     %% TODO handle error cases here? ie the ignore and {error,erro} respons?
-    gen_server:start({local,at_server}, at_server, State, []).
+    gen_server:start(at_server, State, []).
 
 %% Default timeout value is 5000 ms
 %% call/2 is a synchronous call
@@ -48,6 +54,13 @@ update_t(AT, Ref, Fun) ->
 commit_t(AT, Ref) ->
     %% COM why sync and not async, since ass. text doesnt say anything
     gen_server:call(AT,{commit_t, Ref}).
+
+%%% Extra API
+%% COM the extra functionality and why
+%% COM I assume that it works as intended
+%% Returns {ok, ListOfPids}
+get_pids(AT) ->
+    gen_server:call(AT,get_pids).
 
 %%%-------------------------------------------------------------------
 %%% Communication primitives
@@ -123,47 +136,130 @@ init(Args) ->
 %% Reason = term()
 %%%----------------------------------
 
+%% TODO Remove the transactions value from the transactions?
+
+%% COM/TODO what should happen if calling update on a ref that has been aborted
+%% COM/TODO what should happen if calling update on a ref that does not exist
+%% COM/TODO when do we clean up the aborted processes?
+%% -> After each commit? Otherwise they will stack only upwards
+%% COM when doing (Ref,Pid,Status) ->
+%% Only the master (at_server) knows the state of the transactions
+%% They don't know it themselves.
+%% -> Why not let them know? What are the advanteges and disadvanteges of both ways?
+%% This way we do not need to talk to them when aborting them after a commit
+%% or if the user requests it
+%% But they cannot abort them selves if they find some unexpected error or terminates
+%% for some unexpected reason.
+%% What about perfomance? This way we need to do several O(N) key searches,
+%% -> becomes a problem with a large N
+%% The other way we need to do some sync communication, which could be a problem
+%% with a worker than is running some very heavy computations in a update call
+%% and the master becomes unresponsive as the change has to be a sync call,
+%% (otherwise a commit call can occour later and skip ahead in the mailbox,
+%% as the mail box order is not guarenteed when moving out of local space communication
+%% (find reference)).
+
+%% COM One could make it so that workers do not get killed after a commit, but merely
+%% set to waiting/empty/init and are treated as non-existing when trying to perfom
+%% operations on them, but when begin_t is called the master server looks up in its pool
+%% and only spawns a new worker if no waiting worker is to be found.
+%% Only that this makes the reference not unique as they may be reused after each commit
+%% Unless they are updated by the master when changing their state! As their
+%% pid is what is used to communicate with the workers.
+%% -> I will do this! (don't kill and create new ref each time) 
+
+%% COM from ass. text "Note, that your implementation must stop all unused 
+%% processes and should not keep transaction-helper processes much longer 
+%% than necessary, especially at commits. Also, processes waiting for answers 
+%% from aborted transactions must be answered with aborted as quickly as possible. 
+%% Explain in your report how you solve this problem."
+%% -> Does this mean that I should kill the processes? But how should I then
+%% let the user know that the process has been aborted? And a busy server will
+%% have a lot of overhead spawning and killing processes, of course a very non-busy
+%% server will not, and might benefit from it.
+%% But my method also allows for a-process-waiting-for-answer-from-aborted-transaction
+%% to recieve the aborted messages very very quickly, (O(n) fast..)
+
+
+%% COM Do I maintain this property?
+%% "Your API must be robust against erroneous updating and querying functions.
+%% All erroneous behaviour outside a transaction must return error,
+%% and all erroneous behaviour inside a transaction must return aborted."
+
+
+
 handle_call(stop_at_server, From, {State,Transactions}) ->
-    %% TODO stop all transactions and pools %% Move that work down to terminate? To stick the the api description
+    lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
+    {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
+handle_call(stop_at_trans, From, {State, Transactions}) ->
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
 handle_call({doquery,Fun}, From, {State,Transactions}) ->
-    Result = Fun(State),
-    {reply,{ok,Result},{State,Transactions}};
+    Reply = try Fun(State) of
+		Result -> {ok,Result}
+	    catch
+		%% TODO report the error to the caller?
+		E:R -> error
+	    end,
+    {reply,Reply,{State,Transactions}};
 handle_call({doquery_t, {Ref, Fun}}, From, {State,Transactions}) ->
-    %% TODO handle case where Ref does not exist
-    {Ref,TrPid} = lists:keyfind(Ref,1,Transactions),
-    Reply = gen_server:call(TrPid, {doquery, Fun}),
-    {reply, Reply, {State, Transactions}};
+    {Reply,NewTransactions} = case lists:keyfind(Ref,1,Transactions) of
+				  false ->
+				      {wrong_ref,Transactions};
+				  {_,_,waiting} ->
+				      {wrong_ref,Transactions};
+				  {Ref,TrPid,ready} ->
+				      case gen_server:call(TrPid, {doquery, Fun}) of
+					  error ->
+					      {aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
+					  Result -> {Result,Transactions}
+				      end;
+				  {Ref,_,aborted} ->
+				      {aborted,Transactions}
+			      end,
+    {reply, Reply, {State, NewTransactions}};
 handle_call(begin_t, From, {State,Transactions}) ->
     %% COM why use key pair instead of just using the returned pid as the 'ref' value
-    %% or something else?
+    %% or something else? This allows us to maintain a unique reference to the user but internally
+    %% maintain a small pool of processes instead of killing and spawning new each item
     URef = make_ref(),
-    {ok, TrPid} = gen_server:start(at_server, State, []),
-    {reply,{ok,URef},{State,[{URef,TrPid}|Transactions]}};
+    NewTransactions = case lists:keyfind(waiting,3,Transactions) of
+			  false ->
+			      {ok, TrPid} = gen_server:start(at_server, State, []),
+			      [{URef,TrPid,ready}|Transactions];
+			  {Ref,TrPid,waiting} ->
+			      %% Make sure to update its state to be of ours
+			      ok = gen_server:call(TrPid,{update,fun(_) -> State end}),
+			      lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
+		      end,
+    {reply,{ok,URef},{State,NewTransactions}};
 handle_call({update, Fun}, From, {State, Transactions}) ->
-    NewState = Fun(State),
-    {reply,ok,{NewState,Transactions}};
+    {Reply,NewState} = try Fun(State) of
+			   Result -> {ok,Result}
+		       catch
+			   %% TODO report the error to the caller?
+			   E:R -> {error,State}
+		       end,
+    {reply,Reply,{NewState,Transactions}};
 handle_call({commit_t, Ref}, From, {State, Transactions}) ->
-    %% TODO abort all other transactions
-    {Ref,TrPid} = lists:keyfind(Ref,1,Transactions),
-    {ok,NewState} = gen_server:call(TrPid, {doquery,fun(X) -> X end}),
-    {reply,ok,{NewState,Transactions}}.
-
-
-test() ->
-    {ok,A} = start([13]),
-    {ok,R} = begin_t(A),
-    Aa = doquery(A,fun(X) -> X end),
-    Ab = query_t(A,R, fun(X) -> multA(X) end),
-    ok = update_t(A,R,fun(X) -> multA(X) end),
-    Ac = query_t(A,R,fun(X) -> multA(X) end),
-    ok = commit_t(A,R),
-    Ad = doquery(A,fun(X) -> X end),
-    stop(A),
-    {Aa,Ab,Ac,Ad}.
-
-multA([X]) ->
-    [X*1000].
+    {Reply, NewState, NewTransactions} =
+	case lists:keyfind(Ref,1,Transactions) of
+	    false ->
+		{wrong_ref,State,Transactions};
+	    {Ref,_,waiting} ->
+		{wrong_ref,State,Transactions};
+	    {Ref,_,aborted} ->
+		{aborted,State,Transactions};
+	    {Ref,TrPid,ready} ->
+		{ok, NS} = gen_server:call(TrPid, {doquery,fun(I) -> I end}),
+		%% Abort all transactions now,
+		%% ei set their state to waiting
+		%% Note that their state does not get 'cleaned up' this is done in begin_t
+		NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
+		{ok,NS,NT}
+	end,
+    {reply,Reply,{NewState,NewTransactions}};
+handle_call(get_pids, From, {State, Transactions}) ->
+    {reply, {ok, [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)]}, {State, Transactions}}.
 
 %%%----------------------------------
 %% Module:handle_cast(Request, State) -> Result
@@ -179,10 +275,19 @@ multA([X]) ->
 %%%----------------------------------
 
 handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
-    {Ref,TrPid} = lists:keyfind(Ref,1,Transactions),
-    %% COM why sync and not async?
-    ok = gen_server:call(TrPid,{update, Fun}),
-    {noreply, {State, Transactions}}.
+    NewTransactions = case lists:keyfind(Ref,1,Transactions) of
+				  false ->
+				      Transactions;
+				  {Ref,TrPid,ready} ->
+				      case gen_server:call(TrPid,{update, Fun}) of
+					  error ->
+					      lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted});
+					  ok -> Transactions
+				      end;
+				  {Ref,_,aborted} ->
+				      Transactions
+			      end,
+    {noreply, {State, NewTransactions}}.
 
 %%%----------------------------------
 %% Module:handle_info(Info, State) -> Result
@@ -208,6 +313,11 @@ handle_info(Info, State) ->
 %%%----------------------------------
 
 terminate(normal, State) ->
+    ok;
+terminate(Error, State) ->
+    io:format(
+      "at_server/transaction with state: ~p~n"
+      ++" - Terminating due to some unexpected error: ~p!~n",[State, Error]),
     ok.
 
 %%%----------------------------------
