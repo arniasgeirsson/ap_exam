@@ -21,6 +21,8 @@
 
 %% COM are all these functions blocking or non-blocking?
 
+%% COM The ass. text does not say anything about the return value
+%% So I let it be the return valid of query_t.
 abort(AT, Ref) ->
     %% COM/TODO how can I be sure that this ensures an abortion?
     at_server:query_t(AT,Ref,fun(_) -> error(force_abort) end).
@@ -42,6 +44,7 @@ tryUpdate(AT, Fun) ->
 	    %% This could be fixed by first query the transaction with Fun
 	    %% and check the result from there, but I think tryUpdate should focus on
 	    %% speed rather than accuracy, as Fun could be a very large operation.
+	    %% TODO why not call query_t with Fun and then just use that as the answer to update?
 	    aborted
     end.
 
@@ -60,7 +63,7 @@ ensureUpdate(AT, Fun) ->
     %% ? Just keep trying until we succeed?
     %% How can I ensure that it will be on the current state?
     %% First doquery the current state out?
-    {ok,State} = at_server:doquery(AT,fun(I) -> I end),
+    {ok,InitState} = at_server:doquery(AT,fun(I) -> I end),
     {ok,R} = at_server:begin_t(AT),
     %% COM why do I query first? What if the function takes a long time?
     %% -> will not change the outcome of the function, but will increase running time
@@ -70,13 +73,16 @@ ensureUpdate(AT, Fun) ->
     %% someone could still sneak in a commit, if our function has a very long running time.
     %% COM As we are not sure that we get our commit through the first time (or the next, or ever)
     %% we need to keep trying until we get it through.
+
+    %% TODO might aswell take the answer from query_t ????? Instead of
+    %% calling update all the time, since the answer would be exactly the same
     case at_server:query_t(AT,R,Fun) of
-	error ->
+	aborted ->
 	    error;
 	{ok,State} ->
 	    %% COM ensureLoop begins a new transaction, making R obsolete
 	    %% but it will be cleaned up with the next commit.
-	    ensureLoop(AT,State,Fun)
+	    ensureLoop(AT,InitState,Fun)
     end.
 
 ensureLoop(AT,State,Fun) ->
@@ -100,6 +106,8 @@ ensureLoop(AT,State,Fun) ->
 %% Meaning that when we receive a message we can be certain that the helper succeeded.
 %% COM Or someone else commits first?
 %% -> then wrong_ref is returned when trying to commit
+%% COM note that this does not 100% that the first is the one to
+%% get through, (though it does locally) as the message queue is not guerenteed.
 choiceUpdate(AT, Fun, Val_list) ->
     %% COM We must initiate all the transactions before updating and commiting
     %% otherwise we risk that an early one commits before another has even
@@ -107,7 +115,7 @@ choiceUpdate(AT, Fun, Val_list) ->
     %% And zip in the mean time
     AllTrans = lists:map(fun(E) -> {at_server:begin_t(AT),E} end, Val_list),
     Me = self(),
-    lists:foreach(fun({ok,R},E) ->
+    lists:foreach(fun({{ok,R},E}) ->
 			  ok = at_server:update_t(AT,R,
 						  fun(State) -> Res = Fun(State,E),
 								info(Me,{R,done}),

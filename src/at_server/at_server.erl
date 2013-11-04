@@ -279,17 +279,19 @@ handle_call(get_pids, From, {State, Transactions}) ->
 
 handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
     NewTransactions = case lists:keyfind(Ref,1,Transactions) of
-				  false ->
-				      Transactions;
-				  {Ref,TrPid,ready} ->
-				      case gen_server:call(TrPid,{update, Fun}) of
-					  error ->
-					      lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted});
-					  ok -> Transactions
-				      end;
-				  {Ref,_,aborted} ->
-				      Transactions
-			      end,
+			  false ->
+			      Transactions;
+			  {Ref,TrPid,ready} ->
+			      case gen_server:call(TrPid,{update, Fun}) of
+				  error ->
+				      lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted});
+				  ok -> Transactions
+			      end;
+			  {Ref,_,aborted} ->
+			      Transactions;
+			  {Ref,_,waiting} ->
+			      Transactions
+		      end,
     {noreply, {State, NewTransactions}}.
 
 %%%----------------------------------

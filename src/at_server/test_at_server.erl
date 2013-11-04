@@ -12,8 +12,11 @@ runTests() ->
     io:format("Test doquery: ~p~n",[testDoquery()]),
     io:format("Test query_t: ~p~n",[testQuery_t()]),
     io:format("Test update_t: ~p~n",[testUpdate_t()]),
-    io:format("Test commit_t: ~p~n",[testCommit_t()]).
-
+    io:format("Test commit_t: ~p~n",[testCommit_t()]),
+    io:format("Test abort: ~p~n",[testAbort()]),
+    io:format("Test tryUpdate: ~p~n",[testTryUpdate()]),
+    io:format("Test ensureUpdate: ~p~n",[testEnsureUpdate()]),
+    io:format("Test choiceUpdate: ~p~n",[testChoiceUpdate()]).
 %% TODO dont sleep after update?
 
 
@@ -349,6 +352,155 @@ testCommit_t() ->
     {ok,StateC} = at_server:stop(Pid1),
 
     Test1 andalso Test2 andalso Test3 andalso Test4 andalso Test5 andalso Test6 andalso Test7.
+
+%% Test the extended API
+
+testAbort() ->
+    %% Init test data
+    State = abcdef,
+    {ok,Pid1} = at_server:start(State),
+    {ok,R1} = at_server:begin_t(Pid1),
+    {ok,R2} = at_server:begin_t(Pid1),
+    {ok,R3} = at_server:begin_t(Pid1),
+    {ok,R4} = at_server:begin_t(Pid1),
+    {ok,R5} = at_server:begin_t(Pid1),
+    timer:sleep(?SLEEP_TIME),
+
+    %% Test that the transaction is aborted
+    Test1 = aborted == at_extapi:abort(Pid1,R1),
+
+    %% Test what happens if calling aborted again
+    Test2 = aborted == at_extapi:abort(Pid1,R1),
+
+    %% Test that several can be aborted
+    Test31 = aborted == at_extapi:abort(Pid1,R2),
+    Test32 = aborted == at_extapi:abort(Pid1,R3),
+    Test3 = Test31 andalso Test32,
+
+    %% Test that no one else is affacted when one is being aborted
+    Test41 = {ok,State} == at_server:query_t(Pid1,R4,fun identity/1),
+    ok = at_server:update_t(Pid1,R5,fun atom_to_list/1),
+    timer:sleep(?SLEEP_TIME),
+    Test42 = {ok,atom_to_list(State)} == at_server:query_t(Pid1,R5,fun identity/1),
+    Test4 = Test41 andalso Test42,
+
+    %% Test what happens with a unknown ref id
+    WrongRef = make_ref(),
+    Test5 = wrong_ref == at_extapi:abort(Pid1,WrongRef),
+
+    %% Clean up
+    {ok,State} = at_server:stop(Pid1),
+
+    Test1 andalso Test2 andalso Test3 andalso Test4 andalso Test5.
+
+testTryUpdate() ->
+    %% Init test data
+    StateA = [1,2,3,4,5,6],
+    StateB = removeEven(StateA),
+    {ok,Pid1} = at_server:start(StateA),
+    timer:sleep(?SLEEP_TIME),
+    
+    %% Test that if no one else is doing a transaction we get our update through
+    Test11 = ok == at_extapi:tryUpdate(Pid1,fun identity/1),
+    Test12 = {ok,StateA} == at_server:doquery(Pid1, fun identity/1),
+    Test13 = ok == at_extapi:tryUpdate(Pid1,fun removeEven/1),
+    Test14 = {ok,StateB} == at_server:doquery(Pid1, fun identity/1),
+    Test1 = Test11 andalso Test12 andalso Test13 andalso Test14,
+
+    %% Test that if the function fails, no update happens and we get error returned
+    Test21 = error == at_extapi:tryUpdate(Pid1,fun onlyEmpty/1),
+    Test22 = {ok,StateB} == at_server:doquery(Pid1, fun identity/1),
+    Test2 = Test21 andalso Test22,
+    
+    %% Test that if others is doing a transaction they get aborted
+    {ok,R1} = at_server:begin_t(Pid1),
+    {ok,R2} = at_server:begin_t(Pid1),
+    {ok,R3} = at_server:begin_t(Pid1),
+    timer:sleep(?SLEEP_TIME),
+    ok = at_server:update_t(Pid1,R2,fun onlyEmpty/1),
+    ok = at_server:update_t(Pid1,R3,fun removeEven/1),
+    timer:sleep(?SLEEP_TIME),
+    
+    Test31 = ok == at_extapi:tryUpdate(Pid1,fun identity/1),
+    Test32 = isWrongRef(Pid1,R1),
+    Test33 = isWrongRef(Pid1,R2),
+    Test34 = isWrongRef(Pid1,R3),
+    Test3 = Test31 andalso Test32 andalso Test33 andalso Test34,
+
+    %% Test that if someone commits while we are trying to update we get aborted
+    %% -- How? TODO/COM
+
+    %% Clean up
+    {ok,StateB} = at_server:stop(Pid1),
+
+    Test1 andalso Test2 andalso Test3.
+
+testEnsureUpdate() ->
+    %% Init test data
+    StateA = [1,2,3,4,5,6],
+    StateB = removeEven(StateA),
+    {ok,Pid} = at_server:start(StateA),
+    timer:sleep(?SLEEP_TIME),
+
+    %% Test that if we are the only one here we get our update through
+    Test11 = ok == at_extapi:ensureUpdate(Pid,fun identity/1),
+    Test12 = {ok,StateA} == at_server:doquery(Pid, fun identity/1),
+    Test13 = ok == at_extapi:ensureUpdate(Pid,fun removeEven/1),
+    Test14 = {ok,StateB} == at_server:doquery(Pid, fun identity/1),
+    Test1 = Test11 andalso Test12 andalso Test13 andalso Test14,
+
+    %% Test that if the function fails we get error and nothing is updated
+    Test21 = error == at_extapi:ensureUpdate(Pid,fun onlyEmpty/1),
+    Test22 = {ok,StateB} == at_server:doquery(Pid,fun identity/1),
+    Test2 = Test21 andalso Test22,
+
+    %% Test that if someone commits while we are trying to update we still get our
+    %% commit through on the original state and the other is rolled backed
+    %% -- HOW? TODO/COM
+
+    %% Clean up
+    {ok,StateB} = at_server:stop(Pid),
+
+    Test1 andalso Test2.
+
+testChoiceUpdate() ->
+    %% Init test data
+    StateA = [1,2,3,4,5],
+    Val_listA = [1],
+    Val_listB = [a,2,c],
+    {ok,Pid} = at_server:start(StateA),
+    timer:sleep(?SLEEP_TIME),
+
+    Add = fun(State,E) -> lists:map(fun(N) -> N+E end,State) end,
+    StateB = Add(StateA,lists:nth(1,Val_listA)),
+    StateC = Add(StateB,lists:nth(2,Val_listB)),
+
+    %% Test that if only one then that gets through
+    Test11 = ok == at_extapi:choiceUpdate(Pid,Add,Val_listA),
+    Test12 = {ok,StateB} == at_server:doquery(Pid,fun identity/1),
+    Test1 = Test11 andalso Test12,
+
+    %% Test that if all fail except one, then that gets through
+    Test21 = ok == at_extapi:choiceUpdate(Pid,Add,Val_listB),
+    Test22 = {ok,StateC} == at_server:doquery(Pid,fun identity/1),
+    Test2 = Test21 andalso Test22,
+    
+
+    %% Test that a shorter function will be the one to come through rather than a long function
+    %% Although this cannot be guerenteed!
+    %% TODO/COM
+
+    %% Test that if someoneelse commits before any of us, we get aborted when trying to commit (ie wrong_ref)
+    %% -- How? TODO/COM
+
+    %% Show that if all fail then it hangs.
+    %% -- How without hanging the tests...?
+
+    %% Clean up
+    {ok,StateC} = at_server:stop(Pid),
+
+    Test1 andalso Test2.
+
 
 %% Helpers
 
