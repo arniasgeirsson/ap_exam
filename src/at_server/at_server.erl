@@ -26,6 +26,7 @@
 
 %% TODO only one can be started at a time?
 %% -> COM fix is to not give it a name? What is the wanted behaviour? {local, some_name}
+%% COM I make no assumptions on the input State
 start(State) ->
     %% TODO use start or start_link?
     %% TODO handle error cases here? ie the ignore and {error,erro} respons?
@@ -47,6 +48,8 @@ begin_t(AT) ->
 query_t(AT, Ref, Fun) ->
     gen_server:call(AT, {doquery_t, {Ref, Fun}}).
 
+%% COM/TODO is my update_t really non-blocking?
+%% -> no not really.. Fix it!
 %% Cast is the async requests
 update_t(AT, Ref, Fun) ->
     gen_server:cast(AT, {update_t, {Ref, Fun}}).

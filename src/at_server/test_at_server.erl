@@ -14,6 +14,9 @@ runTests() ->
     io:format("Test update_t: ~p~n",[testUpdate_t()]),
     io:format("Test commit_t: ~p~n",[testCommit_t()]).
 
+%% TODO dont sleep after update?
+
+
 %% Test start/1
 testStart() ->
     %% TODO can start/1 go wrong in any way?
@@ -201,8 +204,8 @@ testQuery_t() ->
 
     %% Test what happens with a wrong ref_id
     WrongRef = make_ref(),
-    Test71 = wrong_ref == at_server:query_t(Pid1,WrongRef,fun identity/1),
-    Test72 = wrong_ref == at_server:query_t(Pid1,something_else,fun identity/1),
+    Test71 = isWrongRef(Pid1,WrongRef),
+    Test72 = isWrongRef(Pid1,something),
     Test7 = Test71 andalso Test72,
 
     %% Clean up
