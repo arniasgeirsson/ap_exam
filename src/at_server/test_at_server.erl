@@ -23,6 +23,8 @@ runTests() ->
 %% Test start/1
 testStart() ->
     %% TODO can start/1 go wrong in any way?
+    %% Init test data
+    StateA = [asd,"d",233],
 
     %% Test that we can start a server with some state
 
@@ -36,14 +38,14 @@ testStart() ->
     timer:sleep(?SLEEP_TIME),
     Test2 = isProcessAlive(Pid2),
     
-    {ok, Pid3} = at_server:start([asd,"d", 233]),
+    {ok, Pid3} = at_server:start(StateA),
     timer:sleep(?SLEEP_TIME),
     Test3 = isProcessAlive(Pid3),
 
     %% Clean up
     {ok,[]} = at_server:stop(Pid1),
     {ok,Pid1} = at_server:stop(Pid2),
-    {ok,[asd,"d",233]} = at_server:stop(Pid3),
+    {ok,StateA} = at_server:stop(Pid3),
 
     Test1 andalso Test2 andalso Test3.
 
@@ -205,10 +207,10 @@ testQuery_t() ->
     %% Test that even though R1 is aborted R2 is still good
     Test6 = {ok,State} == at_server:query_t(Pid1,R2,fun identity/1),
 
-    %% Test what happens with a wrong ref_id
+    %% Test that a wrong ref_id is considered to be an aborted transaction
     WrongRef = make_ref(),
-    Test71 = isWrongRef(Pid1,WrongRef),
-    Test72 = isWrongRef(Pid1,something),
+    Test71 = isAborted(Pid1,WrongRef),
+    Test72 = isAborted(Pid1,something),
     Test7 = Test71 andalso Test72,
 
     %% Clean up
@@ -293,7 +295,7 @@ testCommit_t() ->
     %% Test that after a commit the transactions are all aborted
     %% -test what happends if we try and update the same ref again
     %% -test what happends if we try and commit the same ref again
-    Test2 = isWrongRef(Pid1,R1),
+    Test2 = isAborted(Pid1,R1),
 
     %% Test that the state changes to the correct value after a commit and update
     {ok,R2} = at_server:begin_t(Pid1),
@@ -339,13 +341,14 @@ testCommit_t() ->
     ok = at_server:commit_t(Pid1,R5),
     StateC = Mult4(StateB),
     Test61 = {ok,StateC} == at_server:doquery(Pid1, fun identity/1),
-    Test62 = isWrongRef(Pid1,R4),
-    Test63 = isWrongRef(Pid1,R5),
-    Test64 = isWrongRef(Pid1,R6),
-    Test65 = isWrongRef(Pid1,R7),
+    Test62 = isAborted(Pid1,R4),
+    Test63 = isAborted(Pid1,R5),
+    Test64 = isAborted(Pid1,R6),
+    Test65 = isAborted(Pid1,R7),
     Test6 = Test61 andalso Test62 andalso Test63 andalso Test64 andalso Test65,
 
     %% Show that all the proccess remain alive after having been aborted
+    %% COM/TODO this fails if the MIN_POOL flag is set inside at_server.erl
     Test7 = areProcessAlive(AllPids),
 
     %% Clean up
@@ -386,7 +389,7 @@ testAbort() ->
 
     %% Test what happens with a unknown ref id
     WrongRef = make_ref(),
-    Test5 = wrong_ref == at_extapi:abort(Pid1,WrongRef),
+    Test5 = aborted == at_extapi:abort(Pid1,WrongRef),
 
     %% Clean up
     {ok,State} = at_server:stop(Pid1),
@@ -422,9 +425,9 @@ testTryUpdate() ->
     timer:sleep(?SLEEP_TIME),
     
     Test31 = ok == at_extapi:tryUpdate(Pid1,fun identity/1),
-    Test32 = isWrongRef(Pid1,R1),
-    Test33 = isWrongRef(Pid1,R2),
-    Test34 = isWrongRef(Pid1,R3),
+    Test32 = isAborted(Pid1,R1),
+    Test33 = isAborted(Pid1,R2),
+    Test34 = isAborted(Pid1,R3),
     Test3 = Test31 andalso Test32 andalso Test33 andalso Test34,
 
     %% Test that if someone commits while we are trying to update we get aborted
@@ -507,11 +510,6 @@ testChoiceUpdate() ->
 isAborted(Pid,R) ->
     A1 = aborted == at_server:query_t(Pid,R, fun identity/1),
     A2 = aborted == at_server:commit_t(Pid,R),
-    A1 andalso A2.
-
-isWrongRef(Pid,R) ->
-    A1 = wrong_ref == at_server:query_t(Pid,R, fun identity/1),
-    A2 = wrong_ref == at_server:commit_t(Pid,R),
     A1 andalso A2.
 
 % Returns true if the given Pid is a running process

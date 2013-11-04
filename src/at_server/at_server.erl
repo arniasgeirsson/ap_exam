@@ -14,6 +14,8 @@
 % gen_server callback functions
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3, format_status/2]).
 
+-define(MIN_POOL,true).
+
 %%%-------------------------------------------------------------------
 %%% API
 %%%-------------------------------------------------------------------
@@ -30,7 +32,7 @@
 start(State) ->
     %% TODO use start or start_link?
     %% TODO handle error cases here? ie the ignore and {error,erro} respons?
-    gen_server:start(at_server, State, []).
+    gen_server:start(at_server, {server, State}, []).
 
 %% Default timeout value is 5000 ms
 %% call/2 is a synchronous call
@@ -118,9 +120,11 @@ get_pids(AT) ->
 %% Reason = term()
 %%%----------------------------------
 
-init(Args) ->
+init({server, Args}) ->
     %% TODO Init pool size, or something similar? 
-    {ok,{Args,[]}}.
+    {ok,{Args,[]}};
+init({transaction, Args}) ->
+    {ok,{Args,ready}}.
 
 %%%----------------------------------
 %% Module:handle_call(Request, From, State) -> Result
@@ -199,61 +203,61 @@ init(Args) ->
 %% COM I assume that no one will try and guess the pids of the transactions and send
 %% them random messages or try and manipulate with them being going past the api functions
 
-handle_call(stop_at_server, From, {State,Transactions}) ->
+%% COM the status of the transactions to don't entirely relfect the status
+%% maintained by the master, as the only thing that is needed is if they
+%% are aborted or not.
+
+handle_call(stop_at_server, _, {State,Transactions}) ->
     lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
-handle_call(stop_at_trans, From, {State, Transactions}) ->
+handle_call(stop_at_trans, _, {State, _}) ->
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
-handle_call({doquery,Fun}, From, {State, aborted}) ->
+handle_call({doquery,_}, _, {State, aborted}) ->
     {reply,error,{State,aborted}};
-handle_call({doquery,Fun}, From, {State,Satalite}) ->
+handle_call({doquery,Fun}, _, {State,Satalite}) ->
     Reply = try Fun(State) of
 		Result -> {ok,Result}
 	    catch
 		%% TODO report the error to the caller?
-		E:R -> error
+		_:_ -> error
 	    end,
     {reply,Reply,{State,Satalite}};
-handle_call({doquery_t, {Ref, Fun}}, From, {State,Transactions}) ->
-    {Reply,NewTransactions} = case lists:keyfind(Ref,1,Transactions) of
-				  false ->
-				      {wrong_ref,Transactions};
-				  {_,_,waiting} ->
-				      {wrong_ref,Transactions};
-				  {Ref,TrPid,ready} ->
-				      case gen_server:call(TrPid, {doquery, Fun}) of
-					  error ->
-					      {aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
-					  Result -> {Result,Transactions}
-				      end;
-				  {Ref,_,aborted} ->
-				      {aborted,Transactions}
-			      end,
+handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
+    {Reply,NewTransactions} =
+	case lists:keyfind(Ref,1,Transactions) of
+	    false ->
+		{aborted,Transactions};
+	    {_,_,waiting} ->
+		{aborted,Transactions};
+	    {Ref,TrPid,ready} ->
+		case gen_server:call(TrPid, {doquery, Fun}) of
+		    error ->
+			{aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
+		    Result -> {Result,Transactions}
+		end;
+	    {Ref,_,aborted} ->
+		{aborted,Transactions}
+	end,
     {reply, Reply, {State, NewTransactions}};
-handle_call(begin_t, From, {State,Transactions}) ->
+handle_call(begin_t, _, {State,Transactions}) ->
     %% COM why use key pair instead of just using the returned pid as the 'ref' value
     %% or something else? This allows us to maintain a unique reference to the user but internally
     %% maintain a small pool of processes instead of killing and spawning new each item
     URef = make_ref(),
-    NewTransactions = case lists:keyfind(waiting,3,Transactions) of
-			  false ->
-			      {ok, TrPid} = gen_server:start(at_server, State, []),
-			      [{URef,TrPid,ready}|Transactions];
-			  {Ref,TrPid,waiting} ->
-			      %% Make sure to update its state to be of ours
-			      ok = gen_server:cast(TrPid,{update,fun(_) -> State end}),
-			      lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
-		      end,
+    NewTransactions =
+	case lists:keyfind(waiting,3,Transactions) of
+	    false ->
+		{ok, TrPid} = gen_server:start(at_server, {transaction, State}, []),
+		[{URef,TrPid,ready}|Transactions];
+	    {Ref,TrPid,waiting} ->
+		%% Make sure to update its state to be of ours
+		ok = gen_server:call(TrPid,{initiate,fun(_) -> {State,ready} end}),
+		lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
+	end,
     {reply,{ok,URef},{State,NewTransactions}};
-handle_call({commit_t, Ref}, From, {State, Transactions}) ->
+handle_call({commit_t, Ref}, _, {State, Transactions}) ->
     {Reply, NewState, NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
-	    false ->
-		{wrong_ref,State,Transactions};
-	    {Ref,_,waiting} ->
-		{wrong_ref,State,Transactions};
-	    {Ref,_,aborted} ->
-		{aborted,State,Transactions};
 	    {Ref,TrPid,ready} ->
 		case gen_server:call(TrPid, {doquery,fun(I) -> I end}) of
 		    error ->
@@ -262,15 +266,27 @@ handle_call({commit_t, Ref}, From, {State, Transactions}) ->
 			%% Abort all transactions now,
 			%% ei set their state to waiting
 			%% Note that their state does not get 'cleaned up' this is done in begin_t
-			NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
-			{ok,NS,NT}
-		end
+			case ?MIN_POOL of
+			    false ->
+				NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
+				{ok,NS,NT};
+			    true ->
+				lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
+				{ok,NS,[]}
+			end
+		end;
+	    _ ->
+		{aborted,State,Transactions}
 	end,
     {reply,Reply,{NewState,NewTransactions}};
-handle_call(get_pids, From, {State, Transactions}) ->
-    {reply, {ok, [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)]}, {State, Transactions}};
-handle_cast(Msg,From,State) ->
-    {reply,unrecognized_message,State}.
+handle_call(get_pids, _, {State, Transactions}) ->
+    AllPids = [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)],
+    {reply, {ok, AllPids}, {State, Transactions}};
+handle_call({initiate,Fun}, _, State) ->
+    InitState = Fun(State),
+    {reply, ok, InitState};
+handle_call(Msg,_,State) ->
+    {reply,{unrecognized_message,Msg},State}.
 
 %%%----------------------------------
 %% Module:handle_cast(Request, State) -> Result
@@ -289,11 +305,11 @@ handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
     case lists:keyfind(Ref,1,Transactions) of
 	{Ref,TrPid,ready} ->
 	    gen_server:cast(TrPid,{update, Fun});
-	Anything_else ->
+	_ ->
 	    do_nothing
     end,
     {noreply, {State, Transactions}};
-handle_cast({update, Fun}, {State, aborted}) ->
+handle_cast({update, _}, {State, aborted}) ->
     %% Do nothing
     {noreply,{State,aborted}};
 handle_cast({update, Fun}, {State, Status}) ->
@@ -301,10 +317,10 @@ handle_cast({update, Fun}, {State, Status}) ->
 		   Result -> {Result,Status}
 	       catch
 		   %% TODO report the error to the caller?
-		   E:R -> {State,aborted}
+		   _:_ -> {State,aborted}
 	       end,
     {noreply,NewState};
-handle_cast(Msg,State) ->
+handle_cast(_,State) ->
     {noreply,State}.
 
 %%%----------------------------------
@@ -320,7 +336,7 @@ handle_cast(Msg,State) ->
 %% Reason = normal | term()
 %%%----------------------------------
 
-handle_info(Info, State) ->
+handle_info(_, State) ->
     {noreply,State}.
 
 %%%----------------------------------
@@ -330,13 +346,15 @@ handle_info(Info, State) ->
 %% State = term()
 %%%----------------------------------
 
-terminate(normal, State) ->
+terminate(normal, _) ->
     ok;
 terminate(Error, State) ->
     io:format(
-      "at_server/transaction with state: ~p~n"
+      "#####Error: at_server/transaction with state: ~p~n"
       ++" - Terminating due to some unexpected error: ~p!~n",[State, Error]),
     ok.
+
+%% COM the code_change/3 is not used and therefore not implemented, although present due to the expected callback exports
 
 %%%----------------------------------
 %% Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}
@@ -348,8 +366,10 @@ terminate(Error, State) ->
 %% Reason = term()
 %%%----------------------------------
 
-code_change(OldVsn, State, Extra) ->
-    result.
+code_change(_, State, _) ->
+    {ok,State}.
+
+%% COM the optional format_status/2 function is not used and therefore not implemented
 
 %%%----------------------------------
 %%% This one is optional!
@@ -362,5 +382,5 @@ code_change(OldVsn, State, Extra) ->
 %%%----------------------------------
 
 %% TODO needed?
-format_status(Opt, [PDict, State]) ->
+format_status(_, [_, _]) ->
     status.

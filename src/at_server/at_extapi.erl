@@ -28,24 +28,19 @@ abort(AT, Ref) ->
     at_server:query_t(AT,Ref,fun(_) -> error(force_abort) end).
 
 tryUpdate(AT, Fun) ->
-    {ok,R} = at_server:begin_t(AT),
-    ok = at_server:update_t(AT,R,Fun),
-    %% TODO sleep? No because the helper wont answer anyways until he is done with his computation
-    case at_server:commit_t(AT,R) of
-	ok ->
-	    ok;
+    {ok,Ref} = at_server:begin_t(AT),
+    %% COM by querying the transaction first, we can be sure the function returns an error
+    %% to stick to the api, and if we do that then we do not need to recalculate that again
+    %% although adding some overhead of transporting the data back and forth
+    case at_server:query_t(AT,Ref,Fun) of
+	{ok,State} ->
+	    %% COM No reason to evaluate the result again
+	    ok = at_server:update_t(AT,Ref,fun(_) -> State end),
+	    %% COM by now we either get a succesfull commit or got aborted
+	    %% because someone else made a commit before us.
+	    at_server:commit_t(AT,Ref);
 	aborted ->
-	    error;
-	wrong_ref ->
-	    %% COM Due to my implementation, then if the function Fun actually did
-	    %% throw and error, but another transaction managed to commit,
-	    %% before us, R would be 'cleaned' and our commit will return
-	    %% wrong_ref, even though it is not quite correct.
-	    %% This could be fixed by first query the transaction with Fun
-	    %% and check the result from there, but I think tryUpdate should focus on
-	    %% speed rather than accuracy, as Fun could be a very large operation.
-	    %% TODO why not call query_t with Fun and then just use that as the answer to update?
-	    aborted
+	    error
     end.
 
 %% COM As while we try to update the state of AT someone else could do it,
@@ -63,7 +58,6 @@ ensureUpdate(AT, Fun) ->
     %% ? Just keep trying until we succeed?
     %% How can I ensure that it will be on the current state?
     %% First doquery the current state out?
-    {ok,InitState} = at_server:doquery(AT,fun(I) -> I end),
     {ok,R} = at_server:begin_t(AT),
     %% COM why do I query first? What if the function takes a long time?
     %% -> will not change the outcome of the function, but will increase running time
@@ -77,26 +71,32 @@ ensureUpdate(AT, Fun) ->
     %% TODO might aswell take the answer from query_t ????? Instead of
     %% calling update all the time, since the answer would be exactly the same
     case at_server:query_t(AT,R,Fun) of
-	aborted ->
-	    error;
 	{ok,State} ->
 	    %% COM ensureLoop begins a new transaction, making R obsolete
 	    %% but it will be cleaned up with the next commit.
-	    ensureLoop(AT,InitState,Fun)
+	    %% This will speed up the update function, so we hopefully doesn't
+	    %% have to try to many times before succeding.
+	    %% COM and this method ensures that it is the initial state that is used.
+	    ensureLoop(AT,fun(_) -> State end);
+	aborted ->
+	    %% COM there is a slight change that someone made a commit before
+	    %% we were able to call query (not after we begun querying)
+	    %% and after we begun the transaction.
+	    %% TODO how to protect us from this? By letting us try out the function
+	    %% instead of utilizing the transaction, but I don't think that is 
+	    %% a good idea.
+	    error
     end.
 
-ensureLoop(AT,State,Fun) ->
+ensureLoop(AT,Fun) ->
     {ok,R} = at_server:begin_t(AT),
     ok = at_server:update_t(AT,R,Fun),
     case at_server:commit_t(AT,R) of
 	ok ->
 	    ok;
 	aborted ->
-	    %% aborted actually means that the function failed
-	    error;
-	wrong_ref ->
 	    %% COM ugh, we try again
-	    ensureLoop(AT,State,Fun)
+	    ensureLoop(AT,Fun)
     end.
 
 %% COM What if all fails?
@@ -124,14 +124,7 @@ choiceUpdate(AT, Fun, Val_list) ->
 		  end,
 		  AllTrans),
     {R,done} = choiceLoop(),
-    case at_server:commit_t(AT,R) of
-	ok ->
-	    ok;
-	aborted ->
-	    error;
-	wrong_ref ->
-	    aborted
-    end.
+    at_server:commit_t(AT,R).
 
 %% Used by choiceUpdate
 %% COM is moved into its own function to remove garbage messages if any,
