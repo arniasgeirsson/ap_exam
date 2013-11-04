@@ -12,23 +12,21 @@
 % Extra interface functions
 -export([get_pids/1]).
 % gen_server callback functions
--export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3, format_status/2]).
+-export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
 
--define(MIN_POOL,true).
+-define(MIN_POOL,false).
 
 %%%-------------------------------------------------------------------
 %%% API
 %%%-------------------------------------------------------------------
 
-%% COM I always assume that AT is a valid at_server process id, this is never
+%% xCOM I always assume that AT is a valid at_server process id, this is never
 %% checked and if called with invalid value may result in unexpected error, behaviour or 
 %% and endless waiting for a never responding process.
 
-%% COM prove when something is blocking or non-blocking
-
 %% TODO only one can be started at a time?
 %% -> COM fix is to not give it a name? What is the wanted behaviour? {local, some_name}
-%% COM I make no assumptions on the input State
+%% xCOM I make no assumptions on the input State
 start(State) ->
     %% TODO use start or start_link?
     %% TODO handle error cases here? ie the ignore and {error,erro} respons?
@@ -36,7 +34,6 @@ start(State) ->
 
 %% Default timeout value is 5000 ms
 %% call/2 is a synchronous call
-%% COM why do I use sync to stop?
 stop(AT) ->
     gen_server:call(AT,stop_at_server).
 
@@ -50,14 +47,11 @@ begin_t(AT) ->
 query_t(AT, Ref, Fun) ->
     gen_server:call(AT, {doquery_t, {Ref, Fun}}).
 
-%% COM/TODO is my update_t really non-blocking?
-%% -> no not really.. Fix it!
 %% Cast is the async requests
 update_t(AT, Ref, Fun) ->
     gen_server:cast(AT, {update_t, {Ref, Fun}}).
 
 commit_t(AT, Ref) ->
-    %% COM why sync and not async, since ass. text doesnt say anything
     gen_server:call(AT,{commit_t, Ref}).
 
 %%% Extra API
@@ -143,8 +137,6 @@ init({transaction, Args}) ->
 %% Reason = term()
 %%%----------------------------------
 
-%% TODO Remove the transactions value from the transactions?
-
 %% COM/TODO what should happen if calling update on a ref that has been aborted
 %% COM/TODO what should happen if calling update on a ref that does not exist
 %% COM/TODO when do we clean up the aborted processes?
@@ -225,17 +217,19 @@ handle_call({doquery,Fun}, _, {State,Satalite}) ->
 handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
     {Reply,NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
-	    false ->
-		{aborted,Transactions};
-	    {_,_,waiting} ->
-		{aborted,Transactions};
 	    {Ref,TrPid,ready} ->
 		case gen_server:call(TrPid, {doquery, Fun}) of
 		    error ->
-			{aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
+			case ?MIN_POOL of
+			    false ->
+				{aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
+			    true ->
+				{ok,_} = gen_server:call(TrPid,stop_at_trans),
+				{aborted, lists:keydelete(Ref,1,Transactions)}
+			end;
 		    Result -> {Result,Transactions}
 		end;
-	    {Ref,_,aborted} ->
+	    _ ->
 		{aborted,Transactions}
 	end,
     {reply, Reply, {State, NewTransactions}};
@@ -354,7 +348,8 @@ terminate(Error, State) ->
       ++" - Terminating due to some unexpected error: ~p!~n",[State, Error]),
     ok.
 
-%% COM the code_change/3 is not used and therefore not implemented, although present due to the expected callback exports
+%% COM the code_change/3 is not used and therefore not implemented,
+%% although present due to the expected callback exports
 
 %%%----------------------------------
 %% Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}
@@ -368,19 +363,3 @@ terminate(Error, State) ->
 
 code_change(_, State, _) ->
     {ok,State}.
-
-%% COM the optional format_status/2 function is not used and therefore not implemented
-
-%%%----------------------------------
-%%% This one is optional!
-%% Module:format_status(Opt, [PDict, State]) -> Status
-%% ----Types:
-%% Opt = normal | terminate
-%% PDict = [{Key, Value}]
-%% State = term()
-%% Status = term()
-%%%----------------------------------
-
-%% TODO needed?
-format_status(_, [_, _]) ->
-    status.

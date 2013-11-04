@@ -197,6 +197,10 @@ Introduction
 - Any extra notes or comments
 \end_layout
 
+\begin_layout Standard
+- What flags I have used when compiling my code.
+\end_layout
+
 \begin_layout Section
 Question 1: The 
 \noun on
@@ -2012,24 +2016,13 @@ Initial Comments/Introduction to the question:
 
 \end_layout
 
-\begin_layout Subsection
-Any assumptions
-\end_layout
-
 \begin_layout Standard
-- Define 'atomic transaction'
-\end_layout
-
-\begin_layout Subsection
-The Code
-\end_layout
-
-\begin_layout Standard
+I decided to use gen_server,
 \begin_inset Note Note
 status open
 
 \begin_layout Plain Layout
-Comment on the remaining warnings and hints.
+ why? What I could else have done/used?
 \end_layout
 
 \end_inset
@@ -2037,24 +2030,1122 @@ Comment on the remaining warnings and hints.
 
 \end_layout
 
+\begin_layout Standard
+This also explains all the 'comments' in the file.
+\end_layout
+
+\begin_layout Subsection
+Any assumptions
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- Define 'atomic transaction'
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+%% COM I always assume that AT is a valid at_server process id, this is
+ never %% checked and if called with invalid value may result in unexpected
+ error, behaviour or %% and endless waiting for a never responding process.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+%% COM I make no assumptions on the input State
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+General structure of the server, transactions, states and messages being
+ passed (show some images?)
+\end_layout
+
+\begin_layout Standard
+- One could force the transactions to only receive/listen to messages sent
+ from the master.
+ But really needed? Out of scope?
+\end_layout
+
+\begin_layout Subsubsection
+The answer to the problem stated at page 13 - top.
+\end_layout
+
+\begin_layout Subsubsection
+Pool
+\end_layout
+
+\begin_layout Subsection
+The Code
+\end_layout
+
 \begin_layout Subsubsection
 The Server API / Interface functions
 \end_layout
 
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+%% COM prove when something is blocking or non-blocking
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+start(State)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Use start or start_link?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This function creates a new atomic transaction server (ATS) and returns
+ the message 
+\family typewriter
+{ok,Pid}
+\family default
+ where 
+\family typewriter
+Pid
+\family default
+ is the process id of the newly created ATS.
+\end_layout
+
+\begin_layout Standard
+Several ATSs can be started using 
+\family typewriter
+start/1
+\family default
+ and run indenpendently.
+\end_layout
+
+\begin_layout Standard
+Note that I don't make any assumptions on the given 
+\family typewriter
+State
+\family default
+ value, as this should be allowed to be anything and is defined through
+ the functions that act upon it.
+\end_layout
+
+\begin_layout Paragraph
+stop(AT)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+stop/1
+\family default
+ makes a synchronous call to the ATS with the given process id 
+\family typewriter
+AT
+\family default
+, and orders it to shutdown and return the current state.
+ 
+\family typewriter
+stop/1
+\family default
+ will not return until all processes handled by the ATS, including it self,
+ has been shutdown, allowing the caller to be certain that when 
+\family typewriter
+stop/1
+\family default
+ returns everything is cleaned up.
+ Instead of making the call asynchronous and forcing the caller to be in
+ doubt and ultimately the need to wait some random amount of time before
+ the processes are shutdown, or have some unexpected behavior.
+\end_layout
+
+\begin_layout Paragraph
+doquery(AT, Fun) // must block
+\end_layout
+
+\begin_layout Standard
+This function performs the given function 
+\family typewriter
+Fun
+\family default
+ on the current state of the ATS with pid 
+\family typewriter
+AT
+\family default
+ and returns the result in the form 
+\family typewriter
+{ok, Result}
+\family default
+.
+ 
+\end_layout
+
+\begin_layout Standard
+If 
+\family typewriter
+Fun
+\family default
+ fails 
+\family typewriter
+error
+\family default
+ is returned.
+ 
+\family typewriter
+doquery/2
+\family default
+ does not update the state of the server in any way.
+\end_layout
+
+\begin_layout Paragraph
+begin_t(AT)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+The call to the server to create a new transaction is sent synchronous meaning
+ that the transaction is ready to use.
+ But is it really that? Is start/3 really sure that it is started when it
+ returns?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here a new transaction is initialized and keeps a copy of the current state
+ of the given ATS and a unique reference to the transaction is returned.
+ Updates and queries can then be performed on the new transaction, although
+ it belongs to the ATS that it was created within, and can therefore not
+ be used to update the state of some other ATS.
+\end_layout
+
+\begin_layout Standard
+For the unique reference then 
+\family typewriter
+make_ref()
+\family default
+ is used as it guarantees that approximately the first 
+\begin_inset Formula $2^{82}$
+\end_inset
+
+ created references are unique
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+http://www.erlang.org/doc/man/erlang.html#make_ref-0
+\end_layout
+
+\end_inset
+
+.
+ One could just return the process id of the transaction, but this makes
+ it easier for the user to send unwanted messages to the transactions, stop
+ it or in any other way mess it up.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Is the process id as unique as make_ref/0 ?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+query_t(AT, Ref, Fun) // must block
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+query/3
+\family default
+ makes a synchronous call to the specified ATS which in turn makes a synchronous
+ call to the specified transaction 
+\family typewriter
+Ref
+\family default
+ and performs 
+\family typewriter
+Fun
+\family default
+ on the state of 
+\family typewriter
+Ref
+\family default
+ and returns the result to the original caller.
+ The state of 
+\family typewriter
+Ref
+\family default
+ is not updated in any way.
+\end_layout
+
+\begin_layout Standard
+If the function fails in any way, then the transaction is aborted and 
+\family typewriter
+aborted
+\family default
+ is returned to the caller.
+\end_layout
+
+\begin_layout Standard
+If 
+\family typewriter
+Ref
+\family default
+ is an already aborted transaction or non-existing transaction then 
+\family typewriter
+aborted
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Paragraph
+update_t(AT, Ref, Fun) // must not block
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+update_t/3
+\family default
+ makes an asynchronous call to the ATS and further on to the specified transacti
+on 
+\family typewriter
+Ref
+\family default
+ to update its state with the result from calling 
+\family typewriter
+Fun
+\family default
+ with its current state.
+ As the call is asynchronous update_t/3 always returns immediately with
+ 
+\family typewriter
+ok
+\family default
+ and the caller cannot be sure wether it was a successful update or not.
+ If the function fails then the transaction gets aborted and any future
+ query or commit calls to that transaction 
+\family typewriter
+Ref
+\family default
+ will forever return 
+\family typewriter
+aborted
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+If the transaction was already aborted or the given 
+\family typewriter
+Ref
+\family default
+ does not exist then the update call is ignored.
+\end_layout
+
+\begin_layout Paragraph
+commit_t(AT, Ref)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+%% COM why sync and not async, since ass.
+ text doesnt say anything 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+To commit a transaction 
+\family typewriter
+commit_t/2
+\family default
+ is used.
+ It takes a process id 
+\family typewriter
+AT
+\family default
+ of an ATS, a transaction reference 
+\family typewriter
+Ref
+\family default
+ and tries to commit that transaction, i.e.
+ update the state of the ATS with the state of 
+\family typewriter
+Ref
+\family default
+.
+ If the given transaction has been aborted or does simply not exist, then
+ 
+\family typewriter
+aborted
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+If the commit was successful then the state of the ATS is updated to be
+ the current state of the given transaction, followed by all current transaction
+s being aborted, including the one that was committed.
+ Meaning that with every successful commit every transaction is aborted,
+ and all future action on any previous transaction will return aborted,
+ or ignore if the action is 
+\family typewriter
+update_t/3
+\family default
+, and the ATS is at a 'clean' state
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+What do I mean by this, clean state?
+\end_layout
+
+\end_inset
+
+.
+ The assignment text specifies several times that all the 
+\emph on
+other
+\emph default
+ transactions must aborted when doing a successful commit, but it also states
+ that committing an already successfully committed transaction must return
+ 
+\family typewriter
+aborted
+\family default
+, inclining that this transaction has been aborted, and therefore must be
+ aborted after it has been committed.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+The assignment text does not state wether this function must block or not,
+ as it has done with some of the previous ones.
+ I have chosen to make it a synchronous call to the ATS to let it be possible
+ to return the proper return value to the caller, and to lock the master
+ while he is committing to try and disallow any outside interference.
+\end_layout
+
+\begin_layout Paragraph
+get_pids(AT)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+get_pids/1
+\family default
+ is an interface function that I have added for the sake of testing, it
+ makes a synchronous call to a given ATS and returns a list of process id
+ over all the living processes that the given ATS is managing, including
+ it self.
+\end_layout
+
 \begin_layout Subsubsection
-Implementation functions
+Extended API
+\end_layout
+
+\begin_layout Standard
+All the four functions of the extended API are blocking functions.
+\end_layout
+
+\begin_layout Paragraph
+abort(AT, Ref)
+\end_layout
+
+\begin_layout Standard
+This function forces a transaction 
+\family typewriter
+Ref
+\family default
+ to be aborted.
+ I have implemented this functionality by querying the transaction with
+ a function that always raises an error, as shown below.
+\end_layout
+
+\begin_layout LyX-Code
+abort(AT, Ref) ->
+\end_layout
+
+\begin_layout LyX-Code
+    at_server:query_t(AT,Ref,fun(_) -> error(force_abort) end).
+\end_layout
+
+\begin_layout Standard
+This forces the query function to fail and cause the transaction to be aborted.
+\end_layout
+
+\begin_layout Standard
+By using 
+\family typewriter
+query_t/3
+\family default
+ I also cause the 
+\family typewriter
+abort/2
+\family default
+ function to block, i.e.
+ by making a synchronous call to the server.
+ I could have used 
+\family typewriter
+update_t/3
+\family default
+ with the same error-raising-function, and allow 
+\family typewriter
+abort/2
+\family default
+ to return immediately, this would though open up for the possibility that
+ we could try and query, update or even commit the transaction successfully
+ due to the nature of the message order, before our error-function is run
+ and aborts the transaction.
+ By using 
+\family typewriter
+query_t/3
+\family default
+ I can guarantee the caller that when 
+\family typewriter
+abort/2
+\family default
+ returns the transaction is indeed aborted.
+\end_layout
+
+\begin_layout Standard
+I have defined the return value of 
+\family typewriter
+abort/2
+\family default
+ to be the return value of 
+\family typewriter
+query_t/3
+\family default
+, which implies that 
+\family typewriter
+abort/2
+\family default
+ can only return 
+\family typewriter
+aborted
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+tryUpdate(AT, Fun)
+\end_layout
+
+\begin_layout Standard
+As the name implies; 
+\family typewriter
+tryUpdate/2
+\family default
+ tries to update a specified ATS with the given function 
+\family typewriter
+Fun
+\family default
+, if the 
+\family typewriter
+Fun
+\family default
+ fails then error is returned but if a transaction is successfully updated
+ with 
+\family typewriter
+Fun
+\family default
+ then the return value of 
+\family typewriter
+tryUpdate/2
+\family default
+ is the return value of commit attempt.
+\end_layout
+
+\begin_layout Standard
+To allow 
+\family typewriter
+tryUpdate/2
+\family default
+ to return error if 
+\family typewriter
+Fun
+\family default
+ fails I start by querying the spawned transaction and checking the result.
+ Then to avoid performing 
+\family typewriter
+Fun
+\family default
+ twice, as it may be expensive, the provided update function to the transaction
+ is simply just a function that does not care about the previous state and
+ merely returns the result from the query.
+ Although this does add a slight unnecessary overhead of transporting the
+ result from the query back and forth, but allows us to return 
+\family typewriter
+error
+\family default
+ when 
+\family typewriter
+Fun
+\family default
+ fails.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The tryUpdate/2 function starts by beginning a transaction within AT, then
+ does the query and if it succeeds then the transaction is updated and at
+ last committed.
+\end_layout
+
+\begin_layout Paragraph
+ensureUpdate(AT, Fun)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+ensureUpdate/2
+\family default
+ takes a pid of an ATS and a function 
+\family typewriter
+Fun
+\family default
+ and promises to update the ATS with the function 
+\family typewriter
+Fun
+\family default
+ and return 
+\family typewriter
+ok
+\family default
+, except if 
+\family typewriter
+Fun
+\family default
+ fails, then 
+\family typewriter
+error
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+I felt that the assignment text was not clear of which state 
+\family typewriter
+ensureUpdate/2
+\family default
+ should update.
+ As one can easily imagine the case of someone else making a commit before
+ 
+\family typewriter
+ensureUpdate/2
+\family default
+ is able to actual update a transaction and performing a commit, forcing
+ the function to try again.
+ But which state should 
+\family typewriter
+ensureUpdate/2
+\family default
+ now update, the new state of the ATS or the initial state that the AST
+ had when 
+\family typewriter
+ensureUpdate/2
+\family default
+ was first called? I decided to go with the second case, as I felt that
+ this would make most sense
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Why?
+\end_layout
+
+\end_inset
+
+.
+ This approach would mean that we have to rollback those commits that snuck
+ in while we were trying to update the state of the ATS, but this also allows
+ us to only compute the function 
+\family typewriter
+Fun
+\family default
+ one time instead of recalculating it whenever we have to try again, because
+ someone else made a commit before us, and if 
+\family typewriter
+Fun
+\family default
+ is expensive; this could go on for a very long time
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+%% COM As while we try to update the state of AT someone else could do it,
+ %% meaning that either we have to do a rollback of that commit, lying to
+ the other %% client, thinking that he got a commit through, even though
+ we are just going to %% neglect that, as we MUST ensure our update of the
+ state data, unless the Fun %% raises some error, and no rollback will occour.
+ %% Otherwise we could check that if the state of AT has changed before
+ we commit, %% but after we have updated, but this could happen forever,
+ leading to that we %% starve ourselves.
+ And what if the third time around threw an error, and it was %% just a
+ matter of chance (underlying process scheduling, cpu-bussiness, randomness,
+ and-so-on) %% if we could have gotten the second update through.
+ Blaaw, lots of trouble, I will stick %% to the rollback, even though this
+ could mean that we rollback possible many commits.
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+ensureUpdate/2
+\family default
+ start by beginning a new transaction 
+\family typewriter
+T
+\family default
+ and then query 
+\family typewriter
+T
+\family default
+ with 
+\family typewriter
+Fun
+\family default
+, if the result is aborted then I conclude that 
+\family typewriter
+Fun
+\family default
+ failed and return 
+\family typewriter
+error
+\family default
+.
+ If some new state 
+\family typewriter
+S
+\family default
+ was returned start a loop function 
+\family typewriter
+ensureLoop/2
+\family default
+ that will keep trying to update the state of the ATS to be 
+\family typewriter
+S
+\family default
+, until it succeeds.
+ This ensures that it was the initial state of the ATS that is updated and
+ not the in-between committed states.
+\end_layout
+
+\begin_layout Paragraph
+choiceUpdate(AT, Fun, Val_list)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+choiceUpdate/3
+\family default
+ takes, as always, a pid for an ATS, a function 
+\family typewriter
+Fun(State,E)
+\family default
+ and a list of element 
+\family typewriter
+Val_list
+\family default
+, where 
+\family typewriter
+State
+\family default
+ is the state of the ATS and 
+\family typewriter
+E
+\family default
+ is an element from 
+\family typewriter
+Val_list
+\family default
+.
+ 
+\family typewriter
+choiceUpdate/3
+\family default
+ then tries for each element in 
+\family typewriter
+Val_list
+\family default
+ to update the state of the ATS with 
+\family typewriter
+Fun
+\family default
+ in parallel.
+ The first one to finish its update function is also the one that 
+\family typewriter
+choiceUpdate/3
+\family default
+ tries to commit and the return value is then the return value from that
+ commit.
+ If all update functions fail then 
+\family typewriter
+error
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+It is assumed that 
+\family typewriter
+Val_list
+\family default
+ is indeed a list.
+\end_layout
+
+\begin_layout Standard
+The function starts by beginning an amount of transactions equal to the
+ number of elements in 
+\family typewriter
+Val_list
+\family default
+.
+ Then foreach of these transactions they are asked to update their state
+ with 
+\family typewriter
+Fun
+\family default
+ and the respective element 
+\family typewriter
+E
+\family default
+.
+ The update function has been altered to include a try and catch around
+ 
+\family typewriter
+Fun
+\family default
+, which makes sure to send the correct message back to us.
+ We then enter a loop function called 
+\family typewriter
+choiceLoop/2
+\family default
+ where we wait for the first transaction to succeed its update function
+ or that all transactions failed to update their state.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+An important and somewhat trivial aspect of 
+\family typewriter
+choiceUpdate/3
+\family default
+ is that all the transactions must have been begun before any one of them
+ starts updating otherwise one transaction might have finished its update
+ function before another had even been created.
+ Therefore all are begun before any one is asked to update, to ensure a
+ greater fairness to each transaction.
+ Of course running through the list and asking each to update one by one,
+ also favors the first transactions in the list, but this is how far the
+ fairness is possible to stretch in this case.
+\end_layout
+
+\begin_layout Standard
+xHow can I ensure that it is the first one that gets through
+\end_layout
+
+\begin_layout Standard
+- Do I need to talk about the communication again?
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Parallelism is achieved by utilizing that 
+\family typewriter
+update_t/3
+\family default
+ is called asynchronously, and that each transaction runs in its own process.
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The assignment text specifies that 
+\family typewriter
+choiceUpdate/3
+\family default
+ must return the value of the commit of the first transaction to update
+ successfully, but this is not possible if none update succeeds.
+ Instead of letting the function hang and wait forever for some transaction
+ to update successfully, I have added the try-catch inside the update function
+ to be able to let 
+\family typewriter
+choiceUpdate/3
+\family default
+ know if some transaction was aborted and ultimately allowing it to know
+ if all fail and then return 
+\family typewriter
+error
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is also the slight change that someone else makes a commit before
+ any of our transactions gets through, 
+\family typewriter
+choiceUpdate/3
+\family default
+ will still could the commit with the first successful transaction to update,
+ if any, but as implied the return value would then be 
+\family typewriter
+aborted
+\family default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Callback functions
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+format_status/2
+\family default
+ function is not used, and as it is an optional callback function I have
+ not implemented it.
+\end_layout
+
+\begin_layout Paragraph
+init/1
+\end_layout
+
+\begin_layout Paragraph
+handle_call/3
+\end_layout
+
+\begin_layout Paragraph
+handle_cast/2
+\end_layout
+
+\begin_layout Paragraph
+handle_info/2
+\end_layout
+
+\begin_layout Paragraph
+terminate/2
+\end_layout
+
+\begin_layout Paragraph
+code_change/3
+\end_layout
+
+\begin_layout Standard
+Is not used, only implemented because the gen_server behavior expects it.
 \end_layout
 
 \begin_layout Subsubsection
 Helper functions
 \end_layout
 
-\begin_layout Subsubsection
-Something about the states + state functions?
+\begin_layout Paragraph
+ensureLoop(AT, Fun)
 \end_layout
 
-\begin_layout Subsubsection
-The answer to the problem stated at page 13 - top.
+\begin_layout Standard
+Takes a pid of an ATS and a function 
+\family typewriter
+Fun
+\family default
+.
+ It begins a transaction, updates it with 
+\family typewriter
+Fun
+\family default
+ and tries to commit.
+ If the commit succeeds then it returns 
+\family typewriter
+ok
+\family default
+, if not then it will try again.
+ The function assumes that 
+\family typewriter
+Fun
+\family default
+ never fails, and will only stop looping when a commit was successful.
+\end_layout
+
+\begin_layout Paragraph
+choiceLoop(AT, AllTrans)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+choiceLoop/2
+\family default
+ takes an ATS and a list of tuples 
+\family typewriter
+AllTrans
+\family default
+ where it assumes that the first element each tuple is of type 
+\family typewriter
+{ok,Ref}
+\family default
+ where 
+\family typewriter
+Ref
+\family default
+ is some transaction reference.
+ If 
+\family typewriter
+AllTrans
+\family default
+ is empty then 
+\family typewriter
+error
+\family default
+ is returned, otherwise it will listen for the messages 
+\family typewriter
+{R,done}
+\family default
+, 
+\family typewriter
+{R,error}
+\family default
+ and 
+\family typewriter
+E
+\family default
+, where the first message indicates that 
+\family typewriter
+R
+\family default
+ is done with its update function and must be committed, and the return
+ value of this commit is returned to the caller.
+ If the error message is received then the reference is removed from 
+\family typewriter
+AllTrans
+\family default
+ and the loop is called once again.
+ If some unexpected message 
+\family typewriter
+E
+\family default
+ is received then this is discarded and the loop function is called recursively.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is assumed that the first instance of 
+\family typewriter
+{R,done}
+\family default
+ is also the first to update its state, even though this cannot be completely
+ guaranteed due to the process communication.
 \end_layout
 
 \begin_layout Standard
@@ -2070,6 +3161,20 @@ Appendix A Tests
 
 \begin_layout Subsection
 Question 1 Testing
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+When do I consider my implementation to be correct/ working as intended?
+ Write it somewhere.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard

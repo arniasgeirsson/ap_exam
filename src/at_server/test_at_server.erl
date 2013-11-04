@@ -17,8 +17,10 @@ runTests() ->
     io:format("Test tryUpdate: ~p~n",[testTryUpdate()]),
     io:format("Test ensureUpdate: ~p~n",[testEnsureUpdate()]),
     io:format("Test choiceUpdate: ~p~n",[testChoiceUpdate()]).
-%% TODO dont sleep after update?
 
+%% TODO dont sleep after update?
+%% TODO test that a transaction created in ats A cannot be used in another ats B
+%% TODO test choiceUpdate with an empty list
 
 %% Test start/1
 testStart() ->
@@ -471,6 +473,7 @@ testChoiceUpdate() ->
     StateA = [1,2,3,4,5],
     Val_listA = [1],
     Val_listB = [a,2,c],
+    Val_listC = [a,b,c],
     {ok,Pid} = at_server:start(StateA),
     timer:sleep(?SLEEP_TIME),
 
@@ -496,13 +499,13 @@ testChoiceUpdate() ->
     %% Test that if someoneelse commits before any of us, we get aborted when trying to commit (ie wrong_ref)
     %% -- How? TODO/COM
 
-    %% Show that if all fail then it hangs.
-    %% -- How without hanging the tests...?
+    %% Test that if all fail then error is returned
+    Test3 = error == at_extapi:choiceUpdate(Pid,Add,Val_listC),
 
     %% Clean up
     {ok,StateC} = at_server:stop(Pid),
 
-    Test1 andalso Test2.
+    Test1 andalso Test2 andalso Test3.
 
 
 %% Helpers
