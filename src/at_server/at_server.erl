@@ -189,21 +189,31 @@ init(Args) ->
 %% All erroneous behaviour outside a transaction must return error,
 %% and all erroneous behaviour inside a transaction must return aborted."
 
+%% COM the "Transactions" variable is an extra parameter that can be used beside the state
+%% The master uses it to keep information of its transations/pool
+%% The transactions uses it to contain some state (aborted or not)
+%% This is referred to as Transaction when only the master receives this message
+%% Status or the actual status if the message is intended to a transaction
+%% And satalite if both can receive the message
 
+%% COM I assume that no one will try and guess the pids of the transactions and send
+%% them random messages or try and manipulate with them being going past the api functions
 
 handle_call(stop_at_server, From, {State,Transactions}) ->
     lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
 handle_call(stop_at_trans, From, {State, Transactions}) ->
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
-handle_call({doquery,Fun}, From, {State,Transactions}) ->
+handle_call({doquery,Fun}, From, {State, aborted}) ->
+    {reply,error,{State,aborted}};
+handle_call({doquery,Fun}, From, {State,Satalite}) ->
     Reply = try Fun(State) of
 		Result -> {ok,Result}
 	    catch
 		%% TODO report the error to the caller?
 		E:R -> error
 	    end,
-    {reply,Reply,{State,Transactions}};
+    {reply,Reply,{State,Satalite}};
 handle_call({doquery_t, {Ref, Fun}}, From, {State,Transactions}) ->
     {Reply,NewTransactions} = case lists:keyfind(Ref,1,Transactions) of
 				  false ->
@@ -231,18 +241,10 @@ handle_call(begin_t, From, {State,Transactions}) ->
 			      [{URef,TrPid,ready}|Transactions];
 			  {Ref,TrPid,waiting} ->
 			      %% Make sure to update its state to be of ours
-			      ok = gen_server:call(TrPid,{update,fun(_) -> State end}),
+			      ok = gen_server:cast(TrPid,{update,fun(_) -> State end}),
 			      lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
 		      end,
     {reply,{ok,URef},{State,NewTransactions}};
-handle_call({update, Fun}, From, {State, Transactions}) ->
-    {Reply,NewState} = try Fun(State) of
-			   Result -> {ok,Result}
-		       catch
-			   %% TODO report the error to the caller?
-			   E:R -> {error,State}
-		       end,
-    {reply,Reply,{NewState,Transactions}};
 handle_call({commit_t, Ref}, From, {State, Transactions}) ->
     {Reply, NewState, NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
@@ -253,16 +255,22 @@ handle_call({commit_t, Ref}, From, {State, Transactions}) ->
 	    {Ref,_,aborted} ->
 		{aborted,State,Transactions};
 	    {Ref,TrPid,ready} ->
-		{ok, NS} = gen_server:call(TrPid, {doquery,fun(I) -> I end}),
-		%% Abort all transactions now,
-		%% ei set their state to waiting
-		%% Note that their state does not get 'cleaned up' this is done in begin_t
-		NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
-		{ok,NS,NT}
+		case gen_server:call(TrPid, {doquery,fun(I) -> I end}) of
+		    error ->
+			{aborted,State,lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
+		    {ok, NS} ->
+			%% Abort all transactions now,
+			%% ei set their state to waiting
+			%% Note that their state does not get 'cleaned up' this is done in begin_t
+			NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
+			{ok,NS,NT}
+		end
 	end,
     {reply,Reply,{NewState,NewTransactions}};
 handle_call(get_pids, From, {State, Transactions}) ->
-    {reply, {ok, [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)]}, {State, Transactions}}.
+    {reply, {ok, [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)]}, {State, Transactions}};
+handle_cast(Msg,From,State) ->
+    {reply,unrecognized_message,State}.
 
 %%%----------------------------------
 %% Module:handle_cast(Request, State) -> Result
@@ -278,21 +286,26 @@ handle_call(get_pids, From, {State, Transactions}) ->
 %%%----------------------------------
 
 handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
-    NewTransactions = case lists:keyfind(Ref,1,Transactions) of
-			  false ->
-			      Transactions;
-			  {Ref,TrPid,ready} ->
-			      case gen_server:call(TrPid,{update, Fun}) of
-				  error ->
-				      lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted});
-				  ok -> Transactions
-			      end;
-			  {Ref,_,aborted} ->
-			      Transactions;
-			  {Ref,_,waiting} ->
-			      Transactions
-		      end,
-    {noreply, {State, NewTransactions}}.
+    case lists:keyfind(Ref,1,Transactions) of
+	{Ref,TrPid,ready} ->
+	    gen_server:cast(TrPid,{update, Fun});
+	Anything_else ->
+	    do_nothing
+    end,
+    {noreply, {State, Transactions}};
+handle_cast({update, Fun}, {State, aborted}) ->
+    %% Do nothing
+    {noreply,{State,aborted}};
+handle_cast({update, Fun}, {State, Status}) ->
+    NewState = try Fun(State) of
+		   Result -> {Result,Status}
+	       catch
+		   %% TODO report the error to the caller?
+		   E:R -> {State,aborted}
+	       end,
+    {noreply,NewState};
+handle_cast(Msg,State) ->
+    {noreply,State}.
 
 %%%----------------------------------
 %% Module:handle_info(Info, State) -> Result
@@ -308,7 +321,7 @@ handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
 %%%----------------------------------
 
 handle_info(Info, State) ->
-    result.
+    {noreply,State}.
 
 %%%----------------------------------
 %% Module:terminate(Reason, State)
