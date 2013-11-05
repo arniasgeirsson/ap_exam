@@ -62,45 +62,7 @@ get_pids(AT) ->
     gen_server:call(AT,get_pids).
 
 %%%-------------------------------------------------------------------
-%%% Communication primitives
-%%%-------------------------------------------------------------------
-
-%% synchronous communication
-
-%% rpc(Pid, Request) ->
-%%     Pid ! {self(), Request},
-%%     receive
-%%         {Pid, Response} -> Response
-%%     end.
-
-%% reply(From,  Msg) ->
-%%     From ! {self(), Msg}.
-
-%% reply_ok(From) ->
-%%     reply(From, ok).
-
-%% reply_ok(From, Msg) ->
-%%     reply(From, {ok, Msg}).
-
-%% reply_error(From, Msg) ->
-%%     reply(From, error).
-
-%% reply_abort(From) ->
-%%     reply(From, aborted).
-
-%% %% asynchronous communication
-
-%% info(Pid, Msg) ->
-%%     Pid ! Msg.
-
-%%%-------------------------------------------------------------------
-%%% Internal Implementation
-%%%-------------------------------------------------------------------
-
-% Your implementation of the atomic transaction server.
-
-%%%-------------------------------------------------------------------
-%%% State functions
+%%% Callback functions
 %%%-------------------------------------------------------------------
 
 %%%----------------------------------
@@ -114,9 +76,13 @@ get_pids(AT) ->
 %% Reason = term()
 %%%----------------------------------
 
+%% ----------------------------------
+%% -------------- ATS ---------------
 init({server, Args}) ->
     %% TODO Init pool size, or something similar? 
     {ok,{Args,[]}};
+%% ----------------------------------
+%% ---------- Transaction -----------
 init({transaction, Args}) ->
     {ok,{Args,ready}}.
 
@@ -137,11 +103,9 @@ init({transaction, Args}) ->
 %% Reason = term()
 %%%----------------------------------
 
-%% COM/TODO what should happen if calling update on a ref that has been aborted
-%% COM/TODO what should happen if calling update on a ref that does not exist
-%% COM/TODO when do we clean up the aborted processes?
-%% -> After each commit? Otherwise they will stack only upwards
-%% COM when doing (Ref,Pid,Status) ->
+%% %% COM/TODO when do we clean up the aborted processes?
+%% %% -> After each commit? Otherwise they will stack only upwards
+%% COM when doing {Ref,Pid,Status} ->
 %% Only the master (at_server) knows the state of the transactions
 %% They don't know it themselves.
 %% -> Why not let them know? What are the advanteges and disadvanteges of both ways?
@@ -159,9 +123,9 @@ init({transaction, Args}) ->
 %% (find reference)).
 
 %% COM One could make it so that workers do not get killed after a commit, but merely
-%% set to waiting/empty/init and are treated as non-existing when trying to perfom
+%% set to idle and are treated as non-existing when trying to perfom
 %% operations on them, but when begin_t is called the master server looks up in its pool
-%% and only spawns a new worker if no waiting worker is to be found.
+%% and only spawns a new worker if no idle worker is to be found.
 %% Only that this makes the reference not unique as they may be reused after each commit
 %% Unless they are updated by the master when changing their state! As their
 %% pid is what is used to communicate with the workers.
@@ -199,21 +163,15 @@ init({transaction, Args}) ->
 %% maintained by the master, as the only thing that is needed is if they
 %% are aborted or not.
 
+%% A dictionary could also have been used instead of a key value pair (for the transaction mappings)
+
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_call(stop_at_server, _, {State,Transactions}) ->
     lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
-handle_call(stop_at_trans, _, {State, _}) ->
-    {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
-handle_call({doquery,_}, _, {State, aborted}) ->
-    {reply,error,{State,aborted}};
-handle_call({doquery,Fun}, _, {State,Satalite}) ->
-    Reply = try Fun(State) of
-		Result -> {ok,Result}
-	    catch
-		%% TODO report the error to the caller?
-		_:_ -> error
-	    end,
-    {reply,Reply,{State,Satalite}};
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
     {Reply,NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
@@ -233,22 +191,26 @@ handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
 		{aborted,Transactions}
 	end,
     {reply, Reply, {State, NewTransactions}};
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_call(begin_t, _, {State,Transactions}) ->
     %% COM why use key pair instead of just using the returned pid as the 'ref' value
     %% or something else? This allows us to maintain a unique reference to the user but internally
     %% maintain a small pool of processes instead of killing and spawning new each item
     URef = make_ref(),
     NewTransactions =
-	case lists:keyfind(waiting,3,Transactions) of
+	case lists:keyfind(idle,3,Transactions) of
 	    false ->
 		{ok, TrPid} = gen_server:start(at_server, {transaction, State}, []),
 		[{URef,TrPid,ready}|Transactions];
-	    {Ref,TrPid,waiting} ->
+	    {Ref,TrPid,idle} ->
 		%% Make sure to update its state to be of ours
-		ok = gen_server:call(TrPid,{initiate,fun(_) -> {State,ready} end}),
+		ok = gen_server:call(TrPid,{initialize,{State,ready}}),
 		lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
 	end,
     {reply,{ok,URef},{State,NewTransactions}};
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_call({commit_t, Ref}, _, {State, Transactions}) ->
     {Reply, NewState, NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
@@ -258,11 +220,11 @@ handle_call({commit_t, Ref}, _, {State, Transactions}) ->
 			{aborted,State,lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
 		    {ok, NS} ->
 			%% Abort all transactions now,
-			%% ei set their state to waiting
+			%% ei set their state to idle
 			%% Note that their state does not get 'cleaned up' this is done in begin_t
 			case ?MIN_POOL of
 			    false ->
-				NT = lists:map(fun({R,P,_}) -> {R,P,waiting} end, Transactions),
+				NT = lists:map(fun({R,P,_}) -> {R,P,idle} end, Transactions),
 				{ok,NS,NT};
 			    true ->
 				lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
@@ -273,12 +235,35 @@ handle_call({commit_t, Ref}, _, {State, Transactions}) ->
 		{aborted,State,Transactions}
 	end,
     {reply,Reply,{NewState,NewTransactions}};
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_call(get_pids, _, {State, Transactions}) ->
     AllPids = [self()|lists:flatmap(fun({_,P,_}) -> [P] end, Transactions)],
     {reply, {ok, AllPids}, {State, Transactions}};
-handle_call({initiate,Fun}, _, State) ->
-    InitState = Fun(State),
+%% ----------------------------------
+%% ---------- Transaction -----------
+handle_call({initialize,InitState}, _, _) ->
     {reply, ok, InitState};
+%% ----------------------------------
+%% ---------- Transaction -----------
+handle_call(stop_at_trans, _, {State, _}) ->
+    {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
+%% ----------------------------------
+%% ---------- Transaction -----------
+handle_call({doquery,_}, _, {State, aborted}) ->
+    {reply,error,{State,aborted}};
+%% ----------------------------------
+%% -------------- Both --------------
+handle_call({doquery,Fun}, _, {State,Satalite}) ->
+    Reply = try Fun(State) of
+		Result -> {ok,Result}
+	    catch
+		%% TODO report the error to the caller?
+		_:_ -> error
+	    end,
+    {reply,Reply,{State,Satalite}};
+%% ----------------------------------
+%% -------------- Both --------------
 handle_call(Msg,_,State) ->
     {reply,{unrecognized_message,Msg},State}.
 
@@ -295,6 +280,8 @@ handle_call(Msg,_,State) ->
 %% Reason = term()
 %%%----------------------------------
 
+%% ----------------------------------
+%% -------------- ATS ---------------
 handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
     case lists:keyfind(Ref,1,Transactions) of
 	{Ref,TrPid,ready} ->
@@ -303,17 +290,20 @@ handle_cast({update_t, {Ref, Fun}}, {State, Transactions}) ->
 	    do_nothing
     end,
     {noreply, {State, Transactions}};
+%% ----------------------------------
+%% ---------- Transaction -----------
 handle_cast({update, _}, {State, aborted}) ->
-    %% Do nothing
     {noreply,{State,aborted}};
-handle_cast({update, Fun}, {State, Status}) ->
+handle_cast({update, Fun}, {State, ready}) ->
     NewState = try Fun(State) of
-		   Result -> {Result,Status}
+		   Result -> {Result,ready}
 	       catch
 		   %% TODO report the error to the caller?
 		   _:_ -> {State,aborted}
 	       end,
     {noreply,NewState};
+%% ----------------------------------
+%% -------------- Both --------------
 handle_cast(_,State) ->
     {noreply,State}.
 
@@ -330,6 +320,8 @@ handle_cast(_,State) ->
 %% Reason = normal | term()
 %%%----------------------------------
 
+%% ----------------------------------
+%% -------------- Both --------------
 handle_info(_, State) ->
     {noreply,State}.
 
@@ -340,12 +332,29 @@ handle_info(_, State) ->
 %% State = term()
 %%%----------------------------------
 
+%% ----------------------------------
+%% -------------- Both --------------
 terminate(normal, _) ->
     ok;
+%% ----------------------------------
+%% -------------- ATS ---------------
+terminate(Error, {State,[H|T]}) ->
+    io:format(
+      "#####Error: at_server with state: ~p~n"
+      ++"#####Terminating due to some unexpected error: ~p!~n",[State, Error]),
+
+    %% Try to shutdown each living transaction in case we are the master ATS
+    try lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, [H|T]) of
+	_ -> ok
+    catch
+	_:_ -> ok
+    end;
+%% ----------------------------------
+%% ---------- Transaction -----------
 terminate(Error, State) ->
     io:format(
-      "#####Error: at_server/transaction with state: ~p~n"
-      ++" - Terminating due to some unexpected error: ~p!~n",[State, Error]),
+      "#####Error: transaction with state: ~p~n"
+      ++"#####Terminating due to some unexpected error: ~p!~n",[State, Error]),
     ok.
 
 %% COM the code_change/3 is not used and therefore not implemented,
@@ -361,5 +370,7 @@ terminate(Error, State) ->
 %% Reason = term()
 %%%----------------------------------
 
+%% ----------------------------------
+%% -------------- Both --------------
 code_change(_, State, _) ->
     {ok,State}.

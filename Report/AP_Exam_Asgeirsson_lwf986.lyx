@@ -2085,17 +2085,44 @@ General structure of the server, transactions, states and messages being
 \end_layout
 
 \begin_layout Standard
-- One could force the transactions to only receive/listen to messages sent
- from the master.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+COM One could force the transactions to only receive/listen to messages
+ sent from the master.
  But really needed? Out of scope?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Before proceeding to my actual implementation then I want try and describe
+ the overall structure of my atomic transaction server and its managed transacti
+ons and requests.
+\end_layout
+
+\begin_layout Subsubsection
+Who talks to who?
+\end_layout
+
+\begin_layout Subsubsection
+What is a process and what is not?
+\end_layout
+
+\begin_layout Subsubsection
+The status of each transaction
+\end_layout
+
+\begin_layout Subsubsection
+The pool (list of transactions)
 \end_layout
 
 \begin_layout Subsubsection
 The answer to the problem stated at page 13 - top.
-\end_layout
-
-\begin_layout Subsubsection
-Pool
 \end_layout
 
 \begin_layout Subsection
@@ -3013,32 +3040,422 @@ format_status/2
  not implemented it.
 \end_layout
 
+\begin_layout Standard
+Some of the callback functions are rather big and mixed with callbacks to
+ both the ATS, transactions and both, therefore when describing some of
+ these I will divide them into the three cases ATS, Transaction and Both
+ equal to their separation in the actual file 
+\emph on
+at_server.erl
+\emph default
+, to try and make it more readable.
+\end_layout
+
 \begin_layout Paragraph
+init(Args)
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
 init/1
+\family default
+ function is called by the 
+\emph on
+gen_server
+\emph default
+ when an atomic server or a transaction must be spawned.
+ It is used to set the init state of the created server.
+\end_layout
+
+\begin_layout Standard
+When an ATS is being created from the 
+\family typewriter
+start/1
+\family default
+ interface function, then I have wrapped the initial given 
+\family typewriter
+State
+\family default
+ in a tuple with the atom 
+\family typewriter
+server
+\family default
+ as the first element to know this in the init function and set the init
+ pool size to be an empty list.
+\end_layout
+
+\begin_layout Standard
+If a new transaction is being created by the ATS then the atom 
+\family typewriter
+transaction
+\family default
+ is passed along in the same fashion as 
+\family typewriter
+server
+\family default
+ and the initial status is set to 
+\family typewriter
+ready
+\family default
+.
 \end_layout
 
 \begin_layout Paragraph
 handle_call/3
 \end_layout
 
+\begin_layout Standard
+
+\family typewriter
+handle_call/3
+\family default
+ is called by the 
+\emph on
+gen_server
+\emph default
+ when a synchronous request is send to the server.
+ Here I have split the description into the three parts.
+\end_layout
+
+\begin_layout Subparagraph
+ATS
+\end_layout
+
+\begin_layout Standard
+If the 
+\family typewriter
+stop_at_server
+\family default
+ request is send to an ATS then it propagates the stop request to all the
+ transactions that it manages, before terminating it self with the reason
+ 
+\family typewriter
+normal
+\family default
+, and the reply 
+\family typewriter
+{ok,State}
+\family default
+ where 
+\family typewriter
+State
+\family default
+ is the current state of the ATS.
+\end_layout
+
+\begin_layout Standard
+When a 
+\family typewriter
+{doquery_t, {Ref, Fun}}
+\family default
+ request is received then the ATS looks 
+\family typewriter
+Ref
+\family default
+ up in its table of transactions, if it exist and has the status 
+\family typewriter
+ready
+\family default
+ then we try to query the transaction with the given 
+\family typewriter
+Fun
+\family default
+, if it returns 
+\family typewriter
+error
+\family default
+ then we remove it from our pool of transactions or mark it state to be
+ 
+\family typewriter
+aborted
+\family default
+ and reply 
+\family typewriter
+aborted
+\family default
+, if not then we return the result.
+ If the look up failed then we also reply 
+\family typewriter
+aborted
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+If an ATS received a 
+\family typewriter
+begin_t
+\family default
+ query then it creates a unique reference and then tries to find an idle
+ transaction within its pool, which it then initializes to be an fresh and
+ ready transaction to be used.
+ If no transaction was found, then a new one is started/spawned and the
+ ATS adds it to its pool, at last the unique reference is then replied to
+ the caller.
+\end_layout
+
+\begin_layout Standard
+When 
+\family typewriter
+{commit_t, Ref}
+\family default
+ is received then the ATS starts by look up in its pool if the 
+\family typewriter
+Ref
+\family default
+ is present and in 
+\family typewriter
+ready
+\family default
+ status, if it is found then the transaction is queried for its state 
+\family typewriter
+S
+\family default
+ and if the transaction has not been aborted then the state of the ATS is
+ updated to be 
+\family typewriter
+S
+\family default
+, and all transactions are either killed or given the 
+\family typewriter
+idle
+\family default
+ status.
+ 
+\family typewriter
+aborted
+\family default
+ is replied if the look up failed or if the 
+\family typewriter
+doquery
+\family default
+ request returned 
+\family typewriter
+error
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+If the 
+\family typewriter
+get_pid
+\family default
+ request is received then the ATS replies with all process ids found in
+ its pool and includes its own.
+\end_layout
+
+\begin_layout Subparagraph
+Transaction
+\end_layout
+
+\begin_layout Standard
+A transaction can receive an 
+\family typewriter
+initialize
+\family default
+ request along with some 
+\family typewriter
+InitState
+\family default
+ value, this forces the transaction to update its entire state data with
+ the value of 
+\family typewriter
+InitState
+\family default
+.
+ The transaction can also receive a 
+\family typewriter
+stop_at_trans
+\family default
+ request which forces the transaction to stop, i.e.
+ shutdown with the reason 
+\family typewriter
+normal
+\family default
+.
+ If the transaction receive a 
+\family typewriter
+doquery
+\family default
+ request but has the aborted status then it ignores the request and replies
+ with 
+\family typewriter
+aborted
+\family default
+.
+ The case where it does not have the 
+\family typewriter
+aborted
+\family default
+ status is described below.
+\end_layout
+
+\begin_layout Subparagraph
+Both
+\end_layout
+
+\begin_layout Standard
+Both an ATS and a transaction can receive a 
+\family typewriter
+{doquery, Fun}
+\family default
+ request and if so then 
+\family typewriter
+Fun
+\family default
+ is computed with the current state and the result is replied back to the
+ sender, if the function fails then we catch this and reply with 
+\family typewriter
+error
+\family default
+ instead.
+ We do not update the state of the ATS or transaction.
+\end_layout
+
+\begin_layout Standard
+I have added a generic case to make sure that any unexpected request is
+ simply just ignored instead of crashing the server.
+\end_layout
+
 \begin_layout Paragraph
 handle_cast/2
 \end_layout
 
-\begin_layout Paragraph
-handle_info/2
+\begin_layout Standard
+When ever an asynchronous request is sent to the server then the 
+\family typewriter
+handle_cast/2
+\family default
+ callback is called by the OTP.
 \end_layout
 
-\begin_layout Paragraph
-terminate/2
-\end_layout
-
-\begin_layout Paragraph
-code_change/3
+\begin_layout Subparagraph
+ATS
 \end_layout
 
 \begin_layout Standard
-Is not used, only implemented because the gen_server behavior expects it.
+When an ATS received the request 
+\family typewriter
+{update_t, {Ref, Fun}}
+\family default
+ it will try to look up the given 
+\family typewriter
+Ref
+\family default
+ in its pool of transactions if it exists and is 
+\family typewriter
+ready
+\family default
+, meaning that it has not been aborted before and do exist, then the ATS
+ sends an asynchronous update request to the transaction with the given
+ function 
+\family typewriter
+Fun
+\family default
+.
+ The state and pool of the ATS is not altered in any way.
+\end_layout
+
+\begin_layout Subparagraph
+Transaction
+\end_layout
+
+\begin_layout Standard
+If an aborted transaction receives an update request 
+\family typewriter
+{update, Fun}
+\family default
+ then the request is just ignored.
+ If it is in the 
+\family typewriter
+ready
+\family default
+ status then it tries to perform the update and if the function 
+\family typewriter
+Fun
+\family default
+ fails then its state is not updated but its status is set to 
+\family typewriter
+aborted
+\family default
+.
+ If the function succeeds then the state is updated to be the result of
+ the function and the status remains unchanged.
+\end_layout
+
+\begin_layout Subparagraph
+Both
+\end_layout
+
+\begin_layout Standard
+Also here is a generic case added to make sure that any unexpected request
+ is simply just ignored instead of crashing the server.
+\end_layout
+
+\begin_layout Paragraph
+handle_info(Info, State)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+http://www.erlang.org/doc/man/gen_server.html#Module:handle_info-2
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+terminate(Reason, State)
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+terminate/2
+\family default
+ is called by the 
+\emph on
+gen_server
+\emph default
+ right before the process is killed allowing you to do some clean up before
+ shutdown.
+ As already mentioned I have decided to do this in 
+\family typewriter
+handle_call/3
+\family default
+.
+ Although if the ATS is terminated for some unexpected reason then I must
+ try to stop any ongoing transactions incase it is the ATS that is being
+ terminated.
+ I the reason is 
+\family typewriter
+normal
+\family default
+ then I assume that everything is under control.
+\end_layout
+
+\begin_layout Paragraph
+code_change(OldVsn, State, Extra)
+\end_layout
+
+\begin_layout Standard
+The function 
+\family typewriter
+code_change/3
+\family default
+ is not used nor implemented to any extend beyond some mere default state
+ as the 
+\emph on
+gen_server
+\emph default
+ behavior expects this callback function to be implemented.
 \end_layout
 
 \begin_layout Subsubsection
@@ -3596,6 +4013,83 @@ Question 2 Testing
 
 \begin_layout Subsection
 Question 3 Testing
+\end_layout
+
+\begin_layout Standard
+-Introduction
+\end_layout
+
+\begin_layout Standard
+- I decided to let each test section to focus on a single interface/API
+ function at a time, and use this separation when describing them here.
+\end_layout
+
+\begin_layout Subsubsection
+test_at_server.erl
+\end_layout
+
+\begin_layout Paragraph
+testStart()
+\end_layout
+
+\begin_layout Standard
+- What does it test
+\end_layout
+
+\begin_layout Standard
+- How does it test it
+\end_layout
+
+\begin_layout Standard
+- Does it return the expected result?
+\end_layout
+
+\begin_layout Standard
+- Are there some things left to be tested?
+\end_layout
+
+\begin_layout Paragraph
+testBegin()
+\end_layout
+
+\begin_layout Paragraph
+testStop()
+\end_layout
+
+\begin_layout Paragraph
+testDoquery()
+\end_layout
+
+\begin_layout Paragraph
+testQuery_t()
+\end_layout
+
+\begin_layout Paragraph
+testUpdate_t()
+\end_layout
+
+\begin_layout Paragraph
+testCommit_t()
+\end_layout
+
+\begin_layout Paragraph
+testAbort()
+\end_layout
+
+\begin_layout Paragraph
+testTryUpdate()
+\end_layout
+
+\begin_layout Paragraph
+testEnsureUpdate()
+\end_layout
+
+\begin_layout Paragraph
+testChoiceUpdate()
+\end_layout
+
+\begin_layout Paragraph
+- Overall conclusion
 \end_layout
 
 \begin_layout Section

@@ -21,6 +21,8 @@ runTests() ->
 %% TODO dont sleep after update?
 %% TODO test that a transaction created in ats A cannot be used in another ats B
 %% TODO test choiceUpdate with an empty list
+%% TODO test timeouts of the different parts of the server (interface functions)
+%% to make sure that it does not crash
 
 %% Test start/1
 testStart() ->

@@ -109,9 +109,8 @@ choiceLoop(AT,AllTrans) ->
 	{R,error} ->
 	    RestTrans = lists:keydelete({ok,R},1,AllTrans),
 	    choiceLoop(AT,RestTrans);
-	E -> io:format("~p received expected message: ~p~n"
-		       ++"Throwing it away as garbage.~n",[self(),E]),
-	     choiceLoop(AT,AllTrans)
+	_ -> 
+	    choiceLoop(AT,AllTrans)
     end.
     
 
