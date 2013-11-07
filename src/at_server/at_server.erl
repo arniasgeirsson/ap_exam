@@ -14,7 +14,9 @@
 % gen_server callback functions
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
 
--define(MIN_POOL,false).
+-define(MIN_POOL,true).
+%% Default timeout value is 5000 ms for call/3
+-define(TIME_OUT, 5000).
 
 %%%-------------------------------------------------------------------
 %%% API
@@ -24,6 +26,8 @@
 %% checked and if called with invalid value may result in unexpected error, behaviour or 
 %% and endless waiting for a never responding process.
 
+%% TODO make sure that the transactions only listens to messages given by their master?
+
 %% TODO only one can be started at a time?
 %% -> COM fix is to not give it a name? What is the wanted behaviour? {local, some_name}
 %% xCOM I make no assumptions on the input State
@@ -32,34 +36,32 @@ start(State) ->
     %% TODO handle error cases here? ie the ignore and {error,erro} respons?
     gen_server:start(at_server, {server, State}, []).
 
-%% Default timeout value is 5000 ms
 %% call/2 is a synchronous call
 stop(AT) ->
-    gen_server:call(AT,stop_at_server).
+    tryCall(gen_server:call(AT,stop_at_server,?TIME_OUT)).
 
 doquery(AT, Fun) ->
-    gen_server:call(AT,{doquery,Fun}).
+    tryCall(gen_server:call(AT,{doquery,Fun},?TIME_OUT)).
 
 % Returns a reference
 begin_t(AT) ->
-    gen_server:call(AT, begin_t).
+    tryCall(gen_server:call(AT, begin_t,?TIME_OUT)).
 
 query_t(AT, Ref, Fun) ->
-    gen_server:call(AT, {doquery_t, {Ref, Fun}}).
+    tryCall(gen_server:call(AT, {doquery_t, {Ref, Fun}},?TIME_OUT)).
 
 %% Cast is the async requests
 update_t(AT, Ref, Fun) ->
     gen_server:cast(AT, {update_t, {Ref, Fun}}).
 
 commit_t(AT, Ref) ->
-    gen_server:call(AT,{commit_t, Ref}).
+    tryCall(gen_server:call(AT,{commit_t, Ref},?TIME_OUT)).
 
 %%% Extra API
-%% COM the extra functionality and why
 %% COM I assume that it works as intended
 %% Returns {ok, ListOfPids}
 get_pids(AT) ->
-    gen_server:call(AT,get_pids).
+    tryCall(gen_server:call(AT,get_pids,?TIME_OUT)).
 
 %%%-------------------------------------------------------------------
 %%% Callback functions
@@ -103,52 +105,6 @@ init({transaction, Args}) ->
 %% Reason = term()
 %%%----------------------------------
 
-%% %% COM/TODO when do we clean up the aborted processes?
-%% %% -> After each commit? Otherwise they will stack only upwards
-%% COM when doing {Ref,Pid,Status} ->
-%% Only the master (at_server) knows the state of the transactions
-%% They don't know it themselves.
-%% -> Why not let them know? What are the advanteges and disadvanteges of both ways?
-%% This way we do not need to talk to them when aborting them after a commit
-%% or if the user requests it
-%% But they cannot abort them selves if they find some unexpected error or terminates
-%% for some unexpected reason.
-%% What about perfomance? This way we need to do several O(N) key searches,
-%% -> becomes a problem with a large N
-%% The other way we need to do some sync communication, which could be a problem
-%% with a worker than is running some very heavy computations in a update call
-%% and the master becomes unresponsive as the change has to be a sync call,
-%% (otherwise a commit call can occour later and skip ahead in the mailbox,
-%% as the mail box order is not guarenteed when moving out of local space communication
-%% (find reference)).
-
-%% COM One could make it so that workers do not get killed after a commit, but merely
-%% set to idle and are treated as non-existing when trying to perfom
-%% operations on them, but when begin_t is called the master server looks up in its pool
-%% and only spawns a new worker if no idle worker is to be found.
-%% Only that this makes the reference not unique as they may be reused after each commit
-%% Unless they are updated by the master when changing their state! As their
-%% pid is what is used to communicate with the workers.
-%% -> I will do this! (don't kill and create new ref each time) 
-
-%% COM from ass. text "Note, that your implementation must stop all unused 
-%% processes and should not keep transaction-helper processes much longer 
-%% than necessary, especially at commits. Also, processes waiting for answers 
-%% from aborted transactions must be answered with aborted as quickly as possible. 
-%% Explain in your report how you solve this problem."
-%% -> Does this mean that I should kill the processes? But how should I then
-%% let the user know that the process has been aborted? And a busy server will
-%% have a lot of overhead spawning and killing processes, of course a very non-busy
-%% server will not, and might benefit from it.
-%% But my method also allows for a-process-waiting-for-answer-from-aborted-transaction
-%% to recieve the aborted messages very very quickly, (O(n) fast..)
-
-
-%% COM Do I maintain this property?
-%% "Your API must be robust against erroneous updating and querying functions.
-%% All erroneous behaviour outside a transaction must return error,
-%% and all erroneous behaviour inside a transaction must return aborted."
-
 %% COM the "Transactions" variable is an extra parameter that can be used beside the state
 %% The master uses it to keep information of its transations/pool
 %% The transactions uses it to contain some state (aborted or not)
@@ -168,7 +124,7 @@ init({transaction, Args}) ->
 %% ----------------------------------
 %% -------------- ATS ---------------
 handle_call(stop_at_server, _, {State,Transactions}) ->
-    lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
+    stopAllTransactions(Transactions),
     {stop,normal,{ok,State},[]}; %% No reason to carry the state anymore
 %% ----------------------------------
 %% -------------- ATS ---------------
@@ -176,16 +132,18 @@ handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
     {Reply,NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
 	    {Ref,TrPid,ready} ->
-		case gen_server:call(TrPid, {doquery, Fun}) of
+		try gen_server:call(TrPid, {doquery, Fun},?TIME_OUT) of
 		    error ->
 			case ?MIN_POOL of
 			    false ->
 				{aborted, lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
 			    true ->
-				{ok,_} = gen_server:call(TrPid,stop_at_trans),
+				stopTransaction(TrPid),
 				{aborted, lists:keydelete(Ref,1,Transactions)}
 			end;
 		    Result -> {Result,Transactions}
+		catch
+		    _:_ -> {timeout,Transactions}
 		end;
 	    _ ->
 		{aborted,Transactions}
@@ -205,8 +163,14 @@ handle_call(begin_t, _, {State,Transactions}) ->
 		[{URef,TrPid,ready}|Transactions];
 	    {Ref,TrPid,idle} ->
 		%% Make sure to update its state to be of ours
-		ok = gen_server:call(TrPid,{initialize,{State,ready}}),
-		lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
+		try gen_server:call(TrPid,{initialize,{State,ready}},?TIME_OUT) of
+		    ok ->
+			lists:keyreplace(Ref,1,Transactions,{URef,TrPid,ready})
+		catch
+		    _:_ ->
+			{ok, TrPid} = gen_server:start(at_server, {transaction, State}, []),
+			[{URef,TrPid,ready}|Transactions]
+		end
 	end,
     {reply,{ok,URef},{State,NewTransactions}};
 %% ----------------------------------
@@ -215,7 +179,7 @@ handle_call({commit_t, Ref}, _, {State, Transactions}) ->
     {Reply, NewState, NewTransactions} =
 	case lists:keyfind(Ref,1,Transactions) of
 	    {Ref,TrPid,ready} ->
-		case gen_server:call(TrPid, {doquery,fun(I) -> I end}) of
+		try gen_server:call(TrPid, {doquery,fun(I) -> I end},?TIME_OUT) of
 		    error ->
 			{aborted,State,lists:keyreplace(Ref,1,Transactions,{Ref,TrPid,aborted})};
 		    {ok, NS} ->
@@ -227,9 +191,11 @@ handle_call({commit_t, Ref}, _, {State, Transactions}) ->
 				NT = lists:map(fun({R,P,_}) -> {R,P,idle} end, Transactions),
 				{ok,NS,NT};
 			    true ->
-				lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, Transactions),
+				stopAllTransactions,
 				{ok,NS,[]}
 			end
+		catch
+		    _:_ -> {timeout,State,Transactions}
 		end;
 	    _ ->
 		{aborted,State,Transactions}
@@ -302,6 +268,8 @@ handle_cast({update, Fun}, {State, ready}) ->
 		   _:_ -> {State,aborted}
 	       end,
     {noreply,NewState};
+handle_cast(stop_at_trans, State) ->
+    {stop,normal,State};
 %% ----------------------------------
 %% -------------- Both --------------
 handle_cast(_,State) ->
@@ -322,7 +290,9 @@ handle_cast(_,State) ->
 
 %% ----------------------------------
 %% -------------- Both --------------
+%% TODO
 handle_info(_, State) ->
+    io:format("Someone called info!!!"),
     {noreply,State}.
 
 %%%----------------------------------
@@ -343,12 +313,8 @@ terminate(Error, {State,[H|T]}) ->
       "#####Error: at_server with state: ~p~n"
       ++"#####Terminating due to some unexpected error: ~p!~n",[State, Error]),
 
-    %% Try to shutdown each living transaction in case we are the master ATS
-    try lists:foreach(fun({_,P,_}) -> {ok,_} = gen_server:call(P,stop_at_trans) end, [H|T]) of
-	_ -> ok
-    catch
-	_:_ -> ok
-    end;
+    %% Try to shutdown each living transaction
+    stopAllTransactions([H|T]);
 %% ----------------------------------
 %% ---------- Transaction -----------
 terminate(Error, State) ->
@@ -356,9 +322,6 @@ terminate(Error, State) ->
       "#####Error: transaction with state: ~p~n"
       ++"#####Terminating due to some unexpected error: ~p!~n",[State, Error]),
     ok.
-
-%% COM the code_change/3 is not used and therefore not implemented,
-%% although present due to the expected callback exports
 
 %%%----------------------------------
 %% Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}
@@ -370,7 +333,34 @@ terminate(Error, State) ->
 %% Reason = term()
 %%%----------------------------------
 
+%% The code_change/3 callback is not used and therefore not really implemented,
+%% although present due to the expected callback exports
+
 %% ----------------------------------
 %% -------------- Both --------------
 code_change(_, State, _) ->
     {ok,State}.
+
+
+%%%-------------------------------------------------------------------
+%%% Helper server-functions
+%%%-------------------------------------------------------------------
+
+stopAllTransactions(Transactions) ->
+    lists:foreach(fun({_,P,_}) -> stopTransaction(P) end, Transactions).
+
+%% TODO do I need to catch the ok message ?
+stopTransaction(Pid) ->
+    try gen_server:call(Pid,stop_at_trans,?TIME_OUT)
+    catch 
+	_:_ -> gen_server:cast(Pid,stop_at_trans)
+    end.
+
+tryCall(Call) ->
+    try Call of
+	Result ->
+	    Result
+    catch
+	timeout:_ ->
+	    timeout
+    end.

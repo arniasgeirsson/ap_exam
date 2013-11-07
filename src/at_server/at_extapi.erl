@@ -1,14 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author Michael Kirkedal Thomsen <shapper@diku.dk>
-%%% @copyright (C) 2013, Michael Kirkedal Thomsen
-%%% @doc
-%%% Skeleton for AP Exam 2013.
-%%% Implementation of the atomic transaction server
-%%% @end
-%%% Created : Oct 2013 by Michael Kirkedal Thomsen <shapper@diku.dk>
-%%%-------------------------------------------------------------------
-%%% Student name:
-%%% Student KU-id:
+%%% Student name: Arni Asgeirsson
+%%% Student KU-id: lwf986
 %%%-------------------------------------------------------------------
 
 -module(at_extapi).
@@ -43,8 +35,8 @@ tryUpdate(AT, Fun) ->
 
 
 ensureUpdate(AT, Fun) ->
-    {ok,R} = at_server:begin_t(AT),
-    case at_server:query_t(AT,R,Fun) of
+    {ok,Ref} = at_server:begin_t(AT),
+    case at_server:query_t(AT,Ref,Fun) of
 	{ok,State} ->
 	    %% COM ensureLoop begins a new transaction, making R obsolete
 	    %% but it will be cleaned up with the next commit.
@@ -73,30 +65,35 @@ ensureLoop(AT,Fun) ->
 choiceUpdate(AT, Fun, Val_list) ->
     AllTrans = lists:map(fun(E) -> {at_server:begin_t(AT),E} end, Val_list),
     Me = self(),
+    URef = make_ref(),
     lists:foreach(fun({{ok,R},E}) ->
-			  ok = at_server:update_t(AT,R,
-						  fun(State) -> 
-							  try Fun(State,E) of
-							      Res ->
-								  info(Me,{R,done}),
-								  Res
-							  catch
-							      _:_ ->
-								  info(Me,{R,error}),
-								  %% Remember to fail so its state is updated properly
-								  Fun(State,E)
-							  end
-						  end)
+			  ok = at_server:update_t(
+				 AT,
+				 R,
+				 fun(State) ->
+					 
+					 try Fun(State,E) of
+					     Res ->
+						 info(Me,{URef,R,done}),
+						 Res
+					 catch
+					     _:_ ->
+						 info(Me,{URef,R,error}),
+						 %% Remember to fail so its
+						 %% state is updated properly
+						 Fun(State,E)
+					 end
+				 end)
 		  end,
 		  AllTrans),
-    choiceLoop(AT,AllTrans).
+    choiceLoop(AT,AllTrans,URef).
 
 %% Used by choiceUpdate
 %% COM is moved into its own function to remove garbage messages if any,
 %% as a precaution.
-choiceLoop(_,[]) ->
+choiceLoop(_,[],_) ->
     error;
-choiceLoop(AT,AllTrans) ->
+choiceLoop(AT,AllTrans,URef) ->
     %% COM note that the messages are not guarenteed to arrive in the same order
     %% they are sent, therefore it could be that R is not the one who finished first
     %% but then again if R would sent the commit message himself, we still are not
@@ -104,13 +101,13 @@ choiceLoop(AT,AllTrans) ->
     %% COM if we let the transaction to themself commit, we still need to let them
     %% send us a message to protect against the case of where all functions fail.
     receive
-	{R,done} ->
+	{URef,R,done} ->
 	    at_server:commit_t(AT,R);
-	{R,error} ->
+	{URef,R,error} ->
 	    RestTrans = lists:keydelete({ok,R},1,AllTrans),
-	    choiceLoop(AT,RestTrans);
+	    choiceLoop(AT,RestTrans,URef);
 	_ -> 
-	    choiceLoop(AT,AllTrans)
+	    choiceLoop(AT,AllTrans,URef)
     end.
     
 

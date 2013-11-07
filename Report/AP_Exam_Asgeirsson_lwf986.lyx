@@ -1606,6 +1606,19 @@ pCommand'
 
 \begin_layout Standard
 Either parses a '||' command followed by another command' parsing or nothing.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Here the parser does not use the symmetric choice operator '+++' but instead
+ takes a left-biased choice meaning that if it can parse a par command,
+ then it won't branch out and also try to let this parser parse nothing.
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
@@ -1623,6 +1636,16 @@ pCommand2'
 
 \begin_layout Standard
 Either parses a '@' command followed by another command2' parse or nothing.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+ Here the symmetric choice is also voided
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
@@ -1991,14 +2014,6 @@ Implementation functions
 Helper functions
 \end_layout
 
-\begin_layout Subsubsection
-Graphics engine functions?
-\end_layout
-
-\begin_layout Subsection
-Tests?
-\end_layout
-
 \begin_layout Section
 Question 3: Atomic Transaction Server in Erlang
 \end_layout
@@ -2079,6 +2094,11 @@ status open
 
 \end_layout
 
+\begin_layout Standard
+- that no one tamper with the processes, that is send them some unwanted
+ messages
+\end_layout
+
 \begin_layout Subsection
 General structure of the server, transactions, states and messages being
  passed (show some images?)
@@ -2101,36 +2121,55 @@ COM One could force the transactions to only receive/listen to messages
 
 \begin_layout Standard
 Before proceeding to my actual implementation then I want try and describe
- the overall structure of my atomic transaction server and its managed transacti
-ons and requests.
+ the overall structure of my atomic transaction server (ATS) and its managed
+ transactions and requests.
+ 
 \end_layout
 
 \begin_layout Subsubsection
 Who talks to who?
 \end_layout
 
-\begin_layout Subsubsection
-What is a process and what is not?
+\begin_layout Standard
+When a new ATS has been started it is started in a new process and no transactio
+ns can be started nor do any live at startup.
+ When a client wants to start a transaction the API function 
+\family typewriter
+begin_t/1
+\family default
+ is called and this makes the ATS spawn a new transaction, which is in fact
+ an ATS process in its self but 'loops' with another state data and expects
+ different requests, but referred to as a 'transaction' or 'transactions'.
+ All communication to a transaction is done through the ATS in which their
+ were begun.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+I have added the pid of their master in their state data so that they will
+ only listen to messages sent from their own ATS master.
 \end_layout
 
-\begin_layout Subsubsection
-The status of each transaction
+\end_inset
+
+ All communication is done synchronously between the ATS and its transactions,
+ except for the 
+\family typewriter
+update_t/3
+\family default
+ call and when a timeout occurs while trying to stop a transaction, then
+ a asynchronous message is sent instead.
 \end_layout
 
-\begin_layout Subsubsection
-The pool (list of transactions)
-\end_layout
-
-\begin_layout Subsubsection
-The answer to the problem stated at page 13 - top.
-\end_layout
-
-\begin_layout Subsection
-The Code
-\end_layout
-
-\begin_layout Subsubsection
-The Server API / Interface functions
+\begin_layout Standard
+Each transaction could also just have been a tuple containing the unique
+ reference, their current state and some status and the ATS would then simply
+ just maintain a list of these, although this would disallow the opportunity
+ to do any parallel work on the transactions which we can with 
+\family typewriter
+update_t/3
+\family default
+, without doing some silly workaround.
 \end_layout
 
 \begin_layout Standard
@@ -2138,12 +2177,275 @@ The Server API / Interface functions
 status open
 
 \begin_layout Plain Layout
-%% COM prove when something is blocking or non-blocking
+Show image?
 \end_layout
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Subsubsection
+The state data
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+What is that?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The ATS loops with its current state, provided and updated by the client,
+ and a pool of transactions.
+ These can be idle transactions ready to be initiated as new transactions,
+ or ongoing transactions.
+\end_layout
+
+\begin_layout Standard
+A transactions also loops with its current state and a status.
+ This status allows the ATS to know whether the transaction is aborted,
+ ready or idle.
+\end_layout
+
+\begin_layout Subsubsection
+The status of each transaction and the management
+\end_layout
+
+\begin_layout Standard
+As mentioned a transaction can have the have one of the three status; aborted,
+ ready or idle.
+ aborted means that the transaction has been aborted and any further use
+ while in with this status should return aborted.
+ ready is when the transaction has been begun but not aborted yet.
+ idle means that the transaction is not used for anything right now and
+ can be initiated by the ATS to act as a fresh transaction.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Although to avoid a lot of time spent communicating and waiting for responds
+ from non-existing processes, then the ATS maintains it self a list of each
+ transaction, by keeping their status, process id the associated unique
+ reference.
+ Where it is the unique reference that acts as the key into this list allowing
+ the ATS to respond quickly with aborted if the process does not exist,
+ is idle or already aborted.
+ Of course this lookup operation would always take 
+\begin_inset Formula $O(n)$
+\end_inset
+
+ where 
+\begin_inset Formula $n$
+\end_inset
+
+ is the length of the list, but the alternative would be to ask the transactions
+ each time to know what their status is, and they might be busy with some
+ expensive update function, and the alternative would also include the same
+ lookup operation on a list of the same length, unless the ATS does not
+ keep tracked of its transaction and therefore might risk waiting for responds
+ from a process that might never respond.
+\end_layout
+
+\begin_layout Standard
+There is one time the ATS needs to ask a transaction before knowing, and
+ this is when a transaction failed to update its state through a update_t/3
+ call as this is done asynchronously the server won't know until it asks
+ the transaction.
+ Although once the server knows then it updates its own list, so it won't
+ have to ask again.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+why not let the transaction send a message to the ATS once it knows himself?
+ -> well the message queue could be unordered and what if the messages arrives
+ to late, and mixes up the system? (Could that happen?)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+There is also a slight overhead of maintaining this list but I believe that
+ it overcomes the mentioned alternative.
+ An improvement could be to use another data structure to that has faster
+ lookup and replace operations, as these are the most frequent operations
+ used
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+what could be better? why didnt i do it? -> out of scope
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+When looking through my code one might notice that this status is not always
+ maintained by the transaction it self, and this is because the ATS
+\end_layout
+
+\begin_layout Standard
+To sum um the above by answering to the posed problem:
+\end_layout
+
+\begin_layout Quote
+\begin_inset Quotes eld
+\end_inset
+
+Also, processes waiting for answers from aborted transactions must be answered
+ with aborted as quickly as possible.
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+My solution is to let the ATS maintain a list of the statuses of each ongoing
+ transaction to responds quickly by avoiding the hassle to communicate with
+ a process before answering.
+\end_layout
+
+\begin_layout Subsubsection
+The pool (list of transactions)
+\end_layout
+
+\begin_layout Standard
+A like to use pools.
+ There I said it.
+ But I am aware that this might not be the intention, and that is why I
+ defined a 'global-variable' in top of the 
+\emph on
+at_server
+\emph default
+ module MIN_POOL that if set to true the ATS will not keep any idle transactions
+ in its pool, with other words, not maintain a pool.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The fact that I map the unique reference to a process id in the ATS allows
+ me to maintain a pool of idle workers as when an idle transaction gets
+ initiated as a new transaction a new reference is merely created and the
+ old association is updated to the new reference which is also returned
+ to the client.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+An argument for maintaining a pool could be that if the server is heavy
+ used and many transactions are be begun and many are aborted due to either
+ failing functions or commits.
+ A lot of overhead will come from destroying and creating all these processes
+ and in such a case it could be better them let them 'stick-around' instead
+ of being destroyed for a quicker revival.
+ Of course if the server is barely used a pool would be of not much use,
+ and might even cause extra overhead to keep these processes alive.
+ An alternative could be to add these idle processes in a sleeping-queue
+ avoiding that they waits any cpu cycles being idle.
+\end_layout
+
+\begin_layout Standard
+As a side-note then I tried to do some small upscaled tests to test if any
+ difference were to be found using the pool or not, but no noticeable difference
+ were to be found.
+\end_layout
+
+\begin_layout Subsection
+The Code
+\end_layout
+
+\begin_layout Standard
+The following is a description of my implementation of the 
+\emph on
+at_server
+\emph default
+ module and the 
+\emph on
+at_extapi
+\emph default
+ module and most of the interesting problems that arose.
+ As already mentioned then I have defined the 
+\family typewriter
+MIN_POOL
+\family default
+ value at the top of the 
+\emph on
+at_server
+\emph default
+ module, I have also defined a 
+\family typewriter
+TIME_OUT
+\family default
+ value to allow for quick change of the accepted timeout value sent with
+ each synchronous call to the processes, this is mostly used to go from
+ the general default value 
+\emph on
+5000ms
+\emph default
+ to 
+\family typewriter
+infinity
+\family default
+.
+ I advice you to not set the 
+\family typewriter
+TIME_OUT
+\family default
+ value to 
+\family typewriter
+infinity
+\family default
+ when running my tests as some of them will cause the server in a dead_lock
+ state where the server is waiting for a transaction and visa versa.
+\end_layout
+
+\begin_layout Subsubsection
+The Server API / Interface functions
+\end_layout
+
+\begin_layout Standard
+Note that to try and avoid letting the processes crash I have tried to catch
+ the timeout error around each synchronous call too and within the server,
+ although if the 
+\family typewriter
+TIME_OUT
+\family default
+ value is set to something very low my 
+\family typewriter
+tryUpdate/0
+\family default
+ test will fail with timeout in its fourth test case, which I for some reason
+ cannot explain nor fix.
 \end_layout
 
 \begin_layout Paragraph
@@ -2164,8 +2466,8 @@ Use start or start_link?
 \end_layout
 
 \begin_layout Standard
-This function creates a new atomic transaction server (ATS) and returns
- the message 
+This function creates a new atomic transaction server and returns the message
+ 
 \family typewriter
 {ok,Pid}
 \family default
@@ -2497,6 +2799,18 @@ aborted
 \family default
 , inclining that this transaction has been aborted, and therefore must be
  aborted after it has been committed.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+ I did consider that the reason that the extra commit would return aborted
+ was that the transaction had been started from an obsolete and outdated
+ state, 
+\end_layout
+
+\end_inset
+
+
 \begin_inset Newline newline
 \end_inset
 
@@ -3027,6 +3341,24 @@ aborted
 .
 \end_layout
 
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As one may have noticed if glanced upon my implementation, I associate an
+ unique reference to each call to choiceUpdate/3 this is because in a previous
+ call to to choiceUpdate/3 one of the transactions may be still working
+ on its update function, and if it finishes while a future choiceUpdate/3
+ call is waiting for responds from its own transactions then this old one
+ while interfere and send 'false' messages to the choiceUpdate/3, by associated
+ a unique reference to each session allows the function to discard any old
+ obsolete messages.
+\end_layout
+
 \begin_layout Subsubsection
 Callback functions
 \end_layout
@@ -3383,6 +3715,14 @@ aborted
 .
  If the function succeeds then the state is updated to be the result of
  the function and the status remains unchanged.
+\end_layout
+
+\begin_layout Standard
+A transaction can also be asynchronously asked to stop with the 
+\family typewriter
+stop_at_trans
+\family default
+ messages, and so it will.
 \end_layout
 
 \begin_layout Subparagraph
@@ -4024,12 +4364,17 @@ Question 3 Testing
  function at a time, and use this separation when describing them here.
 \end_layout
 
-\begin_layout Subsubsection
-test_at_server.erl
+\begin_layout Standard
+- I assume that no one try to manipulate the servers nor transactions while
+ I test them.
 \end_layout
 
-\begin_layout Paragraph
-testStart()
+\begin_layout Standard
+- Overall test strategy.
+\end_layout
+
+\begin_layout Subsubsection
+test_at_server.erl
 \end_layout
 
 \begin_layout Standard
@@ -4049,47 +4394,992 @@ testStart()
 \end_layout
 
 \begin_layout Paragraph
+testStart()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This function test the functionality of 
+\family typewriter
+start/1
+\family default
+ with two test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test shows that we can start a server with some partly-random
+ state value and that this is alive.
+\end_layout
+
+\begin_layout Standard
+The second test shows that multiply servers can be started as expected.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Based on the two test cases I assume that my implementation of 
+\family typewriter
+start/1
+\family default
+ works as intended.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Did they work as intended?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
 testBegin()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+testbegin/0
+\family default
+ test the function 
+\family typewriter
+begin_t/1
+\family default
+ with four test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test shows that only one process is alive at start up.
+\end_layout
+
+\begin_layout Standard
+Then the second test case tests that the number of living processes increase
+ with the amount of transactions begun.
+\end_layout
+
+\begin_layout Standard
+Test three shows that a transaction created with an ATS 
+\family typewriter
+A
+\family default
+ cannot be used within another ATS.
+\end_layout
+
+\begin_layout Standard
+The fourth test shows that the state of a not-updated transaction is the
+ same as the ATS.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Based on this I assume that 
+\family typewriter
+begin_t/1
+\family default
+ works as intended.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Did they work as intended?
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
 testStop()
 \end_layout
 
+\begin_layout Standard
+Here we test that 
+\family typewriter
+stop/1
+\family default
+ returns all processes within a given ATS is stopped.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test tests that an ATS with no ongoing transactions is stopped
+ after calling the stop function.
+\end_layout
+
+\begin_layout Standard
+The second test shows that an ATS with multiply ongoing transactions are
+ also stopped as expected if calling 
+\family typewriter
+stop/1
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Based on these two simple test cases I assume that my implementation of
+ 
+\family typewriter
+stop/1
+\family default
+ works as intended.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Did they work as intended?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Paragraph
 testDoquery()
+\end_layout
+
+\begin_layout Standard
+Here we test the 
+\family typewriter
+doquery/2
+\family default
+ API function.
+ The intended functionality is that when provided with a function 
+\family typewriter
+F
+\family default
+ it returns the same value as if 
+\family typewriter
+F
+\family default
+ was run locally on the same state, that it does not update the state of
+ the ATS and that if the function fails 
+\family typewriter
+error
+\family default
+ is returned and the process is unchanged.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first two test cases show that the query with a function 
+\family typewriter
+F
+\family default
+ returns the same as running 
+\family typewriter
+F
+\family default
+ locally.
+\end_layout
+
+\begin_layout Standard
+The third test shows that the state of the ATS has not been changed.
+\end_layout
+
+\begin_layout Standard
+The last test tests that if queried with some error-prone function then
+ 
+\family typewriter
+error
+\family default
+ is returned and the ATS remains unchanged.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Based on these test I assume that 
+\family typewriter
+doquery/2
+\family default
+ works as intended.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Did they work as intended?
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Paragraph
 testQuery_t()
 \end_layout
 
+\begin_layout Standard
+Here I test the 
+\family typewriter
+query_t/3
+\family default
+ function with seven test cases.
+ I expect that if queried with a function 
+\family typewriter
+F
+\family default
+ then the result is the same as evaluating 
+\family typewriter
+F
+\family default
+ locally, that 
+\family typewriter
+query_t/3
+\family default
+ does not update the state of the transaction except if it fails, in which
+ case would return aborted and the transaction remains aborted.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first two test cases tests that if queried with a function 
+\family typewriter
+F
+\family default
+ then the result is the same as using 
+\family typewriter
+F
+\family default
+ locally.
+\end_layout
+
+\begin_layout Standard
+The third case shows that the state of the queried transaction is unchanged.
+\end_layout
+
+\begin_layout Standard
+The fourth case shows that if run with a function that will fail then 
+\family typewriter
+aborted
+\family default
+ is returned as expected.
+\end_layout
+
+\begin_layout Standard
+Test case five then tests that the transactions remains aborted if queried
+ again.
+\end_layout
+
+\begin_layout Standard
+Test six tests that if another transaction was started earlier then this
+ remains intact.
+\end_layout
+
+\begin_layout Standard
+The seventh test case tests that if a query is sent to some non-existing
+ transaction then 
+\family typewriter
+aborted
+\family default
+ is returned as expected.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All seven test cases works as expected and based on this I assume that my
+ implementation of 
+\family typewriter
+query_t/3
+\family default
+ works as intended.
+\end_layout
+
 \begin_layout Paragraph
 testUpdate_t()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+With five test cases I test that my implementation of 
+\family typewriter
+update_t/3
+\family default
+ works as intended.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test case tests that if we update some transaction with a function
+ 
+\family typewriter
+F
+\family default
+ then its state is updated to be the result of 
+\family typewriter
+F
+\family default
+ and this works as expected.
+\end_layout
+
+\begin_layout Standard
+The second test that if the given function fails then the transaction is
+ aborted.
+\end_layout
+
+\begin_layout Standard
+The third case test that if trying to update an already aborted transaction
+ yields no change to the status of the transaction.
+\end_layout
+
+\begin_layout Standard
+The fourth test tests that even though one transaction has been aborted
+ then previous begun transactions are still working.
+\end_layout
+
+\begin_layout Standard
+The fifth and last test case show that if calling update with a unrecognized
+ transaction reference then no change has happened.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The above five tests return the expected results and I therefore assume
+ that my implementation of update_t/3 works as intended.
 \end_layout
 
 \begin_layout Paragraph
 testCommit_t()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This function tests my implementation of 
+\family typewriter
+commit_t/3
+\family default
+ with six test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test case tests that you do not need to update a transaction before
+ commit it as expected the commit is successful and the state of the ATS
+ remains the same.
+\end_layout
+
+\begin_layout Standard
+The second test case show the transaction used before has now been aborted,
+ and that trying to commit that transaction again returns 
+\family typewriter
+aborted
+\family default
+ and it remains aborted.
+\end_layout
+
+\begin_layout Standard
+Third test case tests that if a transaction is updated before being committed
+ then the updated state becomes the new state of the ATS.
+\end_layout
+
+\begin_layout Standard
+The fourth test case show that if the provided update function failed then
+ when trying to commit the transaction 
+\family typewriter
+aborted
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+The fifth test case tests that we can have several transactions going and
+ if one is successfully committed then all are aborted and the state of
+ ATS is updated to the expected one.
+\end_layout
+
+\begin_layout Standard
+The last test case tests that 
+\family typewriter
+aborted
+\family default
+ is returned if trying to call 
+\family typewriter
+commit_t/3
+\family default
+ with a wrong transaction reference.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All six test cases return the expected values and based on this I assume
+ that my implementation of 
+\family typewriter
+commit_t/3
+\family default
+ is correct and works as intended.
 \end_layout
 
 \begin_layout Paragraph
 testAbort()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+abort/2
+\family default
+ is tested in this function with five test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first test case tests that 
+\family typewriter
+aborted
+\family default
+ is returned if calling 
+\family typewriter
+abort/2
+\family default
+ on some transaction that has been started.
+\end_layout
+
+\begin_layout Standard
+The second test show that 
+\family typewriter
+aborted
+\family default
+ is returned if calling 
+\family typewriter
+abort/2
+\family default
+ on some transaction that has been aborted previously.
+\end_layout
+
+\begin_layout Standard
+The third show that several ongoing transactions can be aborted without
+ trouble.
+\end_layout
+
+\begin_layout Standard
+The fourth test case tests that no one else is affected when one is aborted.
+\end_layout
+
+\begin_layout Standard
+The fifth test case tests that 
+\family typewriter
+aborted
+\family default
+ is also returned if called with an unknown transactions reference.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All of the five test cases return the expected results and therefore I assume
+ that 
+\family typewriter
+abort/2
+\family default
+ work as intended.
 \end_layout
 
 \begin_layout Paragraph
 testTryUpdate()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This function tests the functionality of my implementation of 
+\family typewriter
+tryUpdate/2
+\family default
+ with four test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first one shows that if no other transaction has been started then 
+\family typewriter
+tryUpdate/2
+\family default
+ successfully updates the given ATS.
+\end_layout
+
+\begin_layout Standard
+The second test case shows that if the function fails then error is returned
+ and the state of the ATS remains unaltered.
+\end_layout
+
+\begin_layout Standard
+The third case tests that if other transactions have been begun, then these
+ are aborted if 
+\family typewriter
+tryUpdate/2
+\family default
+ succeeds.
+\end_layout
+
+\begin_layout Standard
+The last case tries to test that if someone else gets to sneak a commit
+ in while 
+\family typewriter
+tryUpdate/2
+\family default
+ is trying to update the state, then 
+\family typewriter
+aborted
+\family default
+ is returned.
+ Note that I wrote 'tries to' as this is very hard to test due to my implementat
+ion of 
+\family typewriter
+tryUpdate/2
+\family default
+ as clearly a transaction who is waiting only 
+\emph on
+500ms
+\emph default
+ should be able to get his commit through before 
+\family typewriter
+tryUpdate/2
+\family default
+ who waits 
+\emph on
+3500ms
+\emph default
+.
+ Since 
+\family typewriter
+tryUpdate/2
+\family default
+ blocks the ATS by using 
+\family typewriter
+query_t/3
+\family default
+ to do the computation, disallowing the previous transaction to commit after
+ 
+\emph on
+500ms
+\emph default
+.
+ It seems like that once the query is done, then the other transaction is
+ not allowed to commit as 
+\family typewriter
+tryUpdate/2
+\family default
+ is allowed to commit unbothered.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Even though the last test case is hard to set up, I believe that my implementati
+on works as intended as it can either return 
+\family typewriter
+error
+\family default
+ or the return value from the commit statement which can be 
+\family typewriter
+ok
+\family default
+ or 
+\family typewriter
+aborted
+\family default
+, as shown earlier, and hence 
+\family typewriter
+tryUpdate/2
+\family default
+ will also return 
+\family typewriter
+aborted
+\family default
+ in the case that the commit returns 
+\family typewriter
+aborted
+\family default
+.
+ With this in mind and the fact that the other test cases returned the expected
+ result I assume that my implementation of 
+\family typewriter
+tryUpdate/2
+\family default
+ works as intended.
 \end_layout
 
 \begin_layout Paragraph
 testEnsureUpdate()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As my naming convention might have revealed by now, this function tests
+ my implementation of 
+\family typewriter
+ensureUpdate/2
+\family default
+, and does so with three test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first case tests that if no other transaction has been begun, 
+\family typewriter
+ensureUpdate/2
+\family default
+ returns 
+\family typewriter
+ok
+\family default
+ and the state of the ATS is updated accordingly.
+\end_layout
+
+\begin_layout Standard
+The second case tests that if the given function fails then 
+\family typewriter
+error
+\family default
+ is returned and the state of the ATS remains unchanged.
+\end_layout
+
+\begin_layout Standard
+The third test case has the intention to show that if someone gets to commit
+ before 
+\family typewriter
+ensureUpdate/2
+\family default
+, but after it has begun trying, then it will try again, and eventually
+ rollback the other commit.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+But ...
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Based on these three simple test cases I assume that 
+\family typewriter
+ensureUpdate/2
+\family default
+ works as expected.
 \end_layout
 
 \begin_layout Paragraph
 testChoiceUpdate()
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+What is the expected/intended behaviour?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+My last test function tests the functionality of the 
+\family typewriter
+choiceUpdate/3
+\family default
+ function with six test cases.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The first case tests that no other transactions has been begun and 
+\family typewriter
+choiceUpdate/3
+\family default
+ is run with a single element, then this gets through, 
+\family typewriter
+ok
+\family default
+ is returned and the AST has been updated.
+\end_layout
+
+\begin_layout Standard
+The second test case tests that if all choices fail with their function
+ except one, then this one gets through, 
+\family typewriter
+ok
+\family default
+ is returned and the AST is correctly updated.
+\end_layout
+
+\begin_layout Standard
+The third case tests that the shorter function of two is the one who is
+ chosen and gets to be committed to be AST.
+ Although due to the internal workings of the OS, Erlang environment and
+ the alike, I cannot guarantee that this case will always return the expected
+ result, but I do dare to say that a process waiting 
+\emph on
+500ms
+\emph default
+ should only in the most strangest cases be allowed to (busy)wait all 
+\emph on
+500
+\emph default
+ before a process only waiting 
+\emph on
+1ms
+\emph default
+ gets scheduled to run and eventually make its commit.
+\end_layout
+
+\begin_layout Standard
+The fourth test case tests that if someone else gets to commit before any
+ of the choices have successfully updated their state then the return value
+ is 
+\family typewriter
+aborted
+\family default
+ and 
+\family typewriter
+choiceUpdate/3
+\family default
+ does not get to update the AST.
+\end_layout
+
+\begin_layout Standard
+The fifth case shows that if all choices fail then 
+\family typewriter
+error
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+The sixth and last test case tests that if the given list is empty then
+ 
+\family typewriter
+error
+\family default
+ is returned.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All the above functions return the expected result and based on this I assume
+ that my implementation works as intended (big surprise).
 \end_layout
 
 \begin_layout Paragraph
 - Overall conclusion
+\end_layout
+
+\begin_layout Standard
+Apart from some anal edge cases that I cannot provide the correct environment
+ for, all my tests return the expected results and behave as intended, and
+ I therefore dare to assume once more that my implementation the the 
+\emph on
+at_server 
+\emph default
+and 
+\emph on
+at_extapi
+\emph default
+ modules work as intended.
 \end_layout
 
 \begin_layout Section

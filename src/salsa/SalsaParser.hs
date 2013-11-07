@@ -1,3 +1,7 @@
+----------------------------------------------------------------------
+--- Student name: Arni Asgeirsson
+--- Student KU-id: lwf986
+----------------------------------------------------------------------
 module SalsaParser (parseString, parseFile, Error (..)) where
 
 import SalsaAst
@@ -167,10 +171,7 @@ pVIdents = do
   return $ vid:vids'
 
 pVIdents' :: ReadP [Ident]
-pVIdents' =
-  pVIdents
-  +++
-  return []
+pVIdents' = pVIdents +++ return []
 
 pSIdents :: ReadP [Ident]
 pSIdents = do

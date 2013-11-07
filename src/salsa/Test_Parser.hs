@@ -1,8 +1,15 @@
-module Test_Parser (runAllTests) where
+----------------------------------------------------------------------
+--- Student name: Arni Asgeirsson
+--- Student KU-id: lwf986
+----------------------------------------------------------------------
+module Test_Parser
+       (runAllTests,runAllTestsWith)
+       where
 
 import Test.HUnit
 import SalsaAst
 import SalsaParser
+import Test.QuickCheck
 import qualified Test.QuickCheck as QC
 import Control.Monad
 import Control.Exception
@@ -12,12 +19,18 @@ import Control.Exception
 ------------------------------------------------------------
 
 runAllTests :: IO Bool
-runAllTests = do
+runAllTests = runAllTestsWith 100
+
+runAllTestsWith :: Int -> IO Bool
+runAllTestsWith n = do
+  putStrLn "------------------------------------------------------------------"
+  putStrLn "------------ Running tests for the SalsaParser module ------------"
+  putStrLn "------------------------------------------------------------------\n"
   putStrLn "-------------------- Running QuickCheck tests --------------------"
   putStrLn $ "1. Testing if the parser parses the expected outputs from random"
     ++" valid input strings"
   putStrLn "Might take a few seconds ...\n"
-  runQCTest
+  runQCTest n
   putStrLn "\n-------------------- Running HUnit tests -------------------------"
   putStrLn "2. Testing if the precedence and associativity works as intended\n"
   _ <- runTestTT $ TestList [precedenceCases]
@@ -83,8 +96,8 @@ newtype TestProgram = TestProgram (String, Either Error Program)
 instance QC.Arbitrary TestProgram where
   arbitrary = do
     defcoms <- QC.listOf1 $ QC.elements $ definitions++commands
-    (input,output) <- genManyDefcom defcoms
-    return $ TestProgram (input, Right output)
+    (input,output_) <- genManyDefcom defcoms
+    return $ TestProgram (input, Right output_)
 
 ------------------------- Property -------------------------
 
@@ -95,8 +108,8 @@ prop_pProgram (TestProgram (i,o)) = parseString i == o
 ---------------------- QC test runner ----------------------
 
 -- TODO allow it to be user defined how many tests it must run
-runQCTest :: IO ()
-runQCTest = QC.quickCheck prop_pProgram
+runQCTest :: Int -> IO ()
+runQCTest n = QC.quickCheckWith QC.stdArgs{maxSuccess = n } prop_pProgram
 
 ------------------------ Generators ------------------------
 
@@ -525,5 +538,5 @@ testF5 = catch (testFile "test_files/doesNotExist.salsa")
 testFile :: String -> IO Bool
 testFile path_ = do
   content <- readFile path_
-  output <- parseFile path_
-  return $ parseString content == output
+  output_ <- parseFile path_
+  return $ parseString content == output_
