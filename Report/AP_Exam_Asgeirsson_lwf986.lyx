@@ -4,14 +4,13 @@
 \begin_header
 \textclass article
 \begin_preamble
-\usepackage[a4paper]{geometry}
 \usepackage{fancyhdr}
 
 \pagestyle{fancy}
 
-\fancyhead[LO,LE]{Left}
-\fancyhead[CO,CE]{Center}
-\fancyhead[RO,RE]{Right}
+\fancyhead[LO,LE]{Report}
+\fancyhead[CO,CE]{Arni Asgeirsson}
+\fancyhead[RO,RE]{AP Exam 2013}
 
 \usepackage{listings}
 \usepackage{color}
@@ -71,7 +70,7 @@
 \paperfontsize default
 \spacing single
 \use_hyperref false
-\papersize default
+\papersize a4paper
 \use_geometry false
 \use_amsmath 1
 \use_esint 1
@@ -110,10 +109,6 @@ AP Exam 2013
 
 \begin_layout Author
 Arni Asgeirsson lwf986
-\end_layout
-
-\begin_layout Date
-Date?
 \end_layout
 
 \begin_layout Standard
@@ -157,48 +152,226 @@ Introduction
 \end_layout
 
 \begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
 - Introduction to this report (what is it about, what is the structure?,
  where are the tests?), the exam and the three questions.
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
 \begin_layout Standard
+The following is a report documenting my implementations of a Salsa parser,
+ Sala interpreter written in Haskell and a multi process atomic transaction
+ server written in Erlang, and all relevant thoughts, concerns and a discussion
+ of interesting problems that arose while completing the work.
+\end_layout
+
+\begin_layout Standard
+I believe that the greatest focus should be on these thoughts, concerns
+ and discussions as they play a big part in the general assessment of arguments
+ for my code, therefore these will also have great focus in this report.
+ A note to the reader is that I tend to have many thoughts, concerns and
+ discussions with my self, and my have a tendency to write more that others,
+ although it is 
+\emph on
+usually
+\emph default
+ of high quality.
+ I have noticed the very high page number, although don't fret as much of
+ it is section headers and stuff like that stealing pages.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
 - What files are being handed in?
 \end_layout
 
-\begin_layout Standard
-- What is the structure of my src folder?
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-- That the handed in code also provides details of my implementations
+I am handing in a total of 13 files and these are: 
+\emph on
+src/at_server/at_server.erl
+\emph default
+, 
+\emph on
+src/at_server/at_extapi.erl
+\emph default
+, 
+\emph on
+src/test_at_server.erl
+\emph default
+, 
+\emph on
+src/salsa/SalsaParser.hs
+\emph default
+, 
+\emph on
+src/salsa/SalsaInterp.hs
+\emph default
+, 
+\emph on
+src/salsa/Test_Parser.hs
+\emph default
+, 
+\emph on
+src/salsa/Test_Interp.hs
+\emph default
+, 
+\emph on
+src/salsa/Gpx.hs
+\emph default
+, 
+\emph on
+src/salsa/SalsaAst.hs
+\emph default
+, 
+\emph on
+src/salsa/test_files/multi.salsa
+\emph default
+, 
+\emph on
+src/salsa/test_files/simple.salsa
+\emph default
+, 
+\emph on
+src/salsa/test_files/empty.salsa
+\emph default
+, 
+\emph on
+src/salsa/test_files/invalid.salsa
+\emph default
+.
 \end_layout
 
 \begin_layout Standard
-- What do I feel is important to show/tell in this report?
+Note that I have not altered the 
+\emph on
+Gpx.hs
+\emph default
+ file nor the 
+\emph on
+SalsaAst.hs
+\emph default
+ file, these are merely added for convention.
 \end_layout
 
 \begin_layout Standard
+All the files are also included to this report and can be viewed in 
+\series bold
+Appendix E
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I have decided to let all my tests be described in 
+\series bold
+Appendix A
+\series default
+ and therefore separated from the rest of the report and individual assessments.
+ When describing my tests I also make my final assessments on the individual
+ parts.
+ I use both 
+\emph on
+QuickCheck
+\emph default
+ for Haskell, 
+\emph on
+HUnit
+\emph default
+ and regular unit tests when testing.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
 + How do i generally structure my assessments?
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 - Any general assumptions
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 - Any errors in the handed out code
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 - Where is all the code, and how much of it have I included?
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 - Any extra notes or comments
 \end_layout
 
-\begin_layout Standard
+\begin_layout Plain Layout
 - What flags I have used when compiling my code.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I have used the -Wall flag when compiling my Haskell code.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that I am aware that the function 
+\family typewriter
+read
+\family default
+
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Link to documentation
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+ is a partial function, although I have been taught through the Advanced
+ Programming course that this one is OK to use.
 \end_layout
 
 \begin_layout Section
@@ -210,22 +383,22 @@ Salsa
 \end_layout
 
 \begin_layout Standard
+The following describes my implementation of a Salsa parser in Haskell.
+\end_layout
+
+\begin_layout Standard
+I have chosen to use ReadP as it allows me to check wether my grammar is
+ ambiguous.
 \begin_inset Note Note
 status open
 
 \begin_layout Plain Layout
-Initial Comments/Introduction to the question:
+ How exactly?
 \end_layout
 
 \end_inset
 
 
-\end_layout
-
-\begin_layout Standard
-I have chosen ReadP beacuse it also allows me to check that if the grammar
- is ambiguous.
- How exactly?
 \end_layout
 
 \begin_layout Subsection
@@ -234,120 +407,12 @@ Fixing the grammar
 
 \begin_layout Standard
 The given grammar is ambiguous and this must be dealt with before proceeding
- with the actual parser.
- The given grammar is as follows and we shall call this G0.
-\end_layout
-
-\begin_layout LyX-Code
-Program ::= DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs ::= DefCom
-\end_layout
-
-\begin_layout LyX-Code
-    | DefCom DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefCom ::= Command
-\end_layout
-
-\begin_layout LyX-Code
-    | Definition .
-\end_layout
-
-\begin_layout LyX-Code
-Definition ::= ’viewdef’ VIdent Expr Expr
-\end_layout
-
-\begin_layout LyX-Code
-    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’circle’ SIdent Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’view’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | ’group’ VIdent ’[’ VIdents ’]’ .
-\end_layout
-
-\begin_layout LyX-Code
-Command ::= SIdents ’->’ Pos
-\end_layout
-
-\begin_layout LyX-Code
-    | Command ’@’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | Command ’||’ Command
-\end_layout
-
-\begin_layout LyX-Code
-    | ’{’ Command ’}’ .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents ::= VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | VIdent VIdents .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents ::= SIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent SIdents .
-\end_layout
-
-\begin_layout LyX-Code
-Pos ::= ’(’ Expr ’,’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Expr ::= Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | Expr ’+’ Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | Expr ’-’ Prim .
-\end_layout
-
-\begin_layout LyX-Code
-Prim ::= integer
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent ’.’ ’x’
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent ’.’ ’y’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’(’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+ with the actual implementation.
+ The given grammar is shown in 
+\series bold
+Appendix B
+\series default
+ and we shall call this G0.
 \end_layout
 
 \begin_layout Subsubsection
@@ -379,51 +444,7 @@ OLEKS -2: On the contrary, you should've mentioned _why_ you chose to use
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-- What is what?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 It is assumed that the four operators +, -, @ and || all are left-associative.
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Remove @ ? Wait for discu..
- answer.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset space ~
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-- What has precedence?
-\end_layout
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Standard
@@ -491,39 +512,13 @@ Needed to assume this?
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-- Do we need to fix it here in the grammar? Is that even possible? No, but
- we could help it, although the case is very small and might as well fix
- it by using the operators of ReadP ?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 The associativity is already in place and the precedence of +, - and .
- is also already supported by the current grammar.
+ are also already supported by the current grammar.
  What is missing is that @ and || have the correct precedence.
- 
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-How do we then ensure this?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-To do so we followed a simple algorithm:
+ We can ensure this by changing the grammar with the following algorithm
+ and perform it on the non-terminal Command from G0.
+ We might need to use the bias choice <++ operator instead of the fully
+ symmetric +++ operator some places, but if needed we will come to that.
 \end_layout
 
 \begin_layout LyX-Code
@@ -575,140 +570,14 @@ Skriv mere prof
 
  and A,B,C are non-terminals.
  Now a2 will have higher precedence than a1.
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Reference G0 somewhere.
-\end_layout
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Standard
-The following is the resulting grammar and we shall call this G1
-\end_layout
-
-\begin_layout LyX-Code
-Program ::= DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs ::= DefCom
-\end_layout
-
-\begin_layout LyX-Code
-    | DefCom DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefCom ::= Command
-\end_layout
-
-\begin_layout LyX-Code
-    | Definition .
-\end_layout
-
-\begin_layout LyX-Code
-Definition ::= ’viewdef’ VIdent Expr Expr
-\end_layout
-
-\begin_layout LyX-Code
-    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’circle’ SIdent Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’view’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | ’group’ VIdent ’[’ VIdents ’]’ .
-\end_layout
-
-\begin_layout LyX-Code
-Command ::= Command ’||’ Command2
-\end_layout
-
-\begin_layout LyX-Code
-    | Command2 .
-\end_layout
-
-\begin_layout LyX-Code
-Command2 ::= Command2 ’@’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | Command3 .
-\end_layout
-
-\begin_layout LyX-Code
-Command3 ::= SIdents ’->’ Pos
-\end_layout
-
-\begin_layout LyX-Code
-    | ’{’ Command ’}’ .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents ::= VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | VIdent VIdents .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents ::= SIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent SIdents .
-\end_layout
-
-\begin_layout LyX-Code
-Pos ::= ’(’ Expr ’,’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Expr ::= Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | Expr ’+’ Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | Expr ’-’ Prim .
-\end_layout
-
-\begin_layout LyX-Code
-Prim ::= integer
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent ’.’ ’x’
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent ’.’ ’y’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’(’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+The resulting grammar is shown in 
+\series bold
+Appendix B
+\series default
+ and we shall name it G1.
 \end_layout
 
 \begin_layout Subsubsection
@@ -716,17 +585,8 @@ Left factorization
 \end_layout
 
 \begin_layout Standard
-We can see that G1 contains the case of left factorization problem.
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Rephrase!!
-\end_layout
-
-\end_inset
-
- We therefore start by fixing this by doing left factorization on G1.
+We can see that G1 contains the case of left factorization.
+ We therefore fix this by doing left factorization on G1.
 \end_layout
 
 \begin_layout Standard
@@ -769,7 +629,7 @@ note that if any of the prev a1-an is nothing, then A' should also have
 \end_layout
 
 \begin_layout Standard
-where A, As' and B are non-terminals and a1 & a2 are something else.
+where A and A' are non-terminals and B, a1 & a2 could be anything.
 \begin_inset Note Note
 status open
 
@@ -783,147 +643,11 @@ Skriv det ordenligt!!
 \end_layout
 
 \begin_layout Standard
-The resulting grammar is as follows and this shall be called G2.
-\end_layout
-
-\begin_layout LyX-Code
-Program ::= DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs ::= DefCom DefComs' .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs' ::= DefComs
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-DefCom ::= Command
-\end_layout
-
-\begin_layout LyX-Code
-    | Definition .
-\end_layout
-
-\begin_layout LyX-Code
-Definition ::= ’viewdef’ VIdent Expr Expr
-\end_layout
-
-\begin_layout LyX-Code
-    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’circle’ SIdent Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’view’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | ’group’ VIdent ’[’ VIdents ’]’ .
-\end_layout
-
-\begin_layout LyX-Code
-Command ::= Command ’||’ Command2
-\end_layout
-
-\begin_layout LyX-Code
-    | Command2 .
-\end_layout
-
-\begin_layout LyX-Code
-Command2 ::= Command2 ’@’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | Command3 .
-\end_layout
-
-\begin_layout LyX-Code
-Command3 ::= SIdents ’->’ Pos
-\end_layout
-
-\begin_layout LyX-Code
-    | ’{’ Command ’}’ .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents ::= VIdent VIdents' .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents' ::= VIdents
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents ::= SIdent SIdents' .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents' ::= SIdents
-\end_layout
-
-\begin_layout LyX-Code
-    | e.
-\end_layout
-
-\begin_layout LyX-Code
-Pos ::= ’(’ Expr ’,’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Expr ::= Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | Expr Rest2 .
-\end_layout
-
-\begin_layout LyX-Code
-Op :: = ’+’ Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | ’-’ Prim .
-\end_layout
-
-\begin_layout LyX-Code
-Prim ::= integer
-\end_layout
-
-\begin_layout LyX-Code
-    | ’(’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent ’.’ Rest3 .
-\end_layout
-
-\begin_layout LyX-Code
-Proj ::= ’x’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’y’ .
-\end_layout
-
-\begin_layout LyX-Code
-Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+The resulting grammar shall be called G2, and is shown in 
+\series bold
+Appendix B
+\series default
+.
 \end_layout
 
 \begin_layout Subsubsection
@@ -933,7 +657,7 @@ Left recursion
 \begin_layout Standard
 When we look at G2 we can quickly see that there is a few cases of direct
  left-recursion.
- The next is I take is therefore to remove left-recursion from our current
+ Therefore the next step is for me to remove left-recursion from our current
  grammar G2, with the following algorithm:
 \end_layout
 
@@ -962,7 +686,7 @@ A'::= a1 A'
 \end_layout
 
 \begin_layout Standard
-where A and A' are non-terminals and a1 & b1 are 
+where A and A' are non-terminals and a1 & b1 can be anything
 \begin_inset Note Note
 status open
 
@@ -976,374 +700,29 @@ what?
 \end_layout
 
 \begin_layout Standard
-When applying the procedure/algorithm on G2 we get the grammar G3 which
- is shown below:
-\end_layout
-
-\begin_layout LyX-Code
-Program ::= DefComs .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs ::= DefCom DefComs' .
-\end_layout
-
-\begin_layout LyX-Code
-DefComs' ::= DefComs
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-DefCom ::= Command
-\end_layout
-
-\begin_layout LyX-Code
-    | Definition .
-\end_layout
-
-\begin_layout LyX-Code
-Definition ::= ’viewdef’ VIdent Expr Expr
-\end_layout
-
-\begin_layout LyX-Code
-    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’circle’ SIdent Expr Expr Expr Colour
-\end_layout
-
-\begin_layout LyX-Code
-    | ’view’ VIdent
-\end_layout
-
-\begin_layout LyX-Code
-    | ’group’ VIdent ’[’ VIdents ’]’ .
-\end_layout
-
-\begin_layout LyX-Code
-Command ::= Command2 Command' .
-\end_layout
-
-\begin_layout LyX-Code
-Command' ::= ’||’ Command2 Command'
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-Command2 ::= Command3 Command2' .
-\end_layout
-
-\begin_layout LyX-Code
-Command2' ::= ’@’ VIdent Command2'
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-Command3 ::= SIdents ’->’ Pos
-\end_layout
-
-\begin_layout LyX-Code
-    | ’{’ Command ’}’ .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents ::= VIdent VIdents' .
-\end_layout
-
-\begin_layout LyX-Code
-VIdents' ::= VIdents
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents ::= SIdent SIdents' .
-\end_layout
-
-\begin_layout LyX-Code
-SIdents' ::= SIdents
-\end_layout
-
-\begin_layout LyX-Code
-    | e.
-\end_layout
-
-\begin_layout LyX-Code
-Pos ::= ’(’ Expr ’,’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
-\end_layout
-
-\begin_layout LyX-Code
-Expr ::= Prim Expr' .
-\end_layout
-
-\begin_layout LyX-Code
-Expr' ::= Rest2 Expr'
-\end_layout
-
-\begin_layout LyX-Code
-    | e .
-\end_layout
-
-\begin_layout LyX-Code
-Op :: = ’+’ Prim
-\end_layout
-
-\begin_layout LyX-Code
-    | ’-’ Prim .
-\end_layout
-
-\begin_layout LyX-Code
-Prim ::= integer
-\end_layout
-
-\begin_layout LyX-Code
-    | ’(’ Expr ’)’
-\end_layout
-
-\begin_layout LyX-Code
-    | SIdent Rest3 .
-\end_layout
-
-\begin_layout LyX-Code
-Proj ::= ’.’ ’x’
-\end_layout
-
-\begin_layout LyX-Code
-    | ’.’ ’y’ .
-\end_layout
-
-\begin_layout LyX-Code
-Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+When applying the algorithm on G2 we get the grammar G3 which is shown in
+ 
+\series bold
+Appendix B
+\series default
+.
 \end_layout
 
 \begin_layout Standard
-In the rest of the report G3 will be the referred grammar unless something
+In the rest of the report, G3 will be the referred grammar unless something
  else is specified.
 \end_layout
 
 \begin_layout Subsection
-Assumptions on the grammar
+My assumptions on the grammar
 \end_layout
 
 \begin_layout Standard
-Some of the non-terminals in the grammar are not specified in the grammar,
- and only partly described in the assignment text.
- I will therefore list my assumptions and the definitions that I use in
- my implementation.
-\end_layout
-
-\begin_layout Subsubsection
-Case sensitivity
-\end_layout
-
-\begin_layout Standard
-I assume that Samba is case sensitive.
- (This should be given from all definition of 
-\emph on
-VIdent
-\emph default
- and 
-\emph on
-SIdent
-\emph default
-)
-\end_layout
-
-\begin_layout Subsubsection
-integer
-\end_layout
-
-\begin_layout Standard
-Is a non-negative integer number and can therefore be written with the following
- regular expression: 
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-[0-9]^{+}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsubsection
-VIdent
-\end_layout
-
-\begin_layout Standard
-As the assignment text specifies then 
-\emph on
-VIdent
-\emph default
- is a nonempty sequence of letters, digits and underscore, which starts
- with a uppercase letter and can therefore be written with the following
- regular expression:
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-[A-Z]^{+}[A-Za-z0-9\_]^{*}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsubsection
-SIdent
-\end_layout
-
-\begin_layout Standard
-
-\emph on
-SIdent
-\emph default
- is the same as a 
-\emph on
-VIdent
-\emph default
- except it cannot be one of the reserved words, described below, and has
- to start with a lowercase letter, which can be described as:
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-[a-z]^{+}[A-Za-z0-9\_]^{*}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsubsection
-White spaces
-\end_layout
-
-\begin_layout Standard
-Whitespaces are what most would expect, spaces, any tabs, newlines and unicode
- spaces
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-What is unicode spaces, do they belong here?
-\end_layout
-
-\end_inset
-
-.
- As I am using ReadP I will let the the function skipSpaces
-\begin_inset Foot
-status collapsed
-
-\begin_layout Plain Layout
-Link to documentation
-\end_layout
-
-\end_inset
-
- define the exact representation of white spaces.
-\end_layout
-
-\begin_layout Standard
-\begin_inset space ~
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The reserved words, color names, 
-\emph on
-VIdent
-\emph default
-, and 
-\emph on
-SIdent
-\emph default
- are separated by at least one white space of any kind.
- Symbolic tokens are separated by 0 or more white spaces and so are symbolic
- tokens and alpha-numeric tokens from each other.
-\begin_inset Note Note
-status collapsed
-
-\begin_layout Plain Layout
-Rephrase?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsubsection
-Reserved Words
-\end_layout
-
-\begin_layout Standard
-The reserved words are: 'viewdef', 'rectangle', 'circle', 'group' and 'view'.
-\end_layout
-
-\begin_layout Subsubsection
-Color Names
-\end_layout
-
-\begin_layout Standard
-The names of the color are also considered to be reserved words and are
- the following: 'blue', 'plum', 'red', 'green' and 'orange'.
+All my assumptions for the grammar can be viewed Appendix D.
 \end_layout
 
 \begin_layout Subsection
 The Code
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Where can I find the code? both files and appendixes?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Comment on the remaining warnings and hints.
-\end_layout
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Standard
@@ -1359,6 +738,56 @@ Is there anything I could have done differently?
 
 \end_layout
 
+\begin_layout Standard
+The code for the Salsa parser can be found in the file 
+\emph on
+SalsaParser.hs
+\emph default
+ which implements the module 
+\emph on
+SalsaParser
+\emph default
+ and exports the two function 
+\family typewriter
+parseString
+\family default
+ and 
+\family typewriter
+parseFile
+\family default
+, and the 
+\family typewriter
+Error
+\family default
+ data structure.
+ The accompanied test file is called 
+\emph on
+Test_Parser.hs
+\emph default
+ and is described in 
+\series bold
+Appendix A
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+Note that I am aware that 
+\emph on
+HLint
+\emph default
+ spits out a hint of 
+\begin_inset Quotes eld
+\end_inset
+
+Reduce duplication
+\begin_inset Quotes erd
+\end_inset
+
+ although I believe that fixing the hint would negatively affect the readability
+ of my code.
+\end_layout
+
 \begin_layout Subsubsection
 Interface functions
 \end_layout
@@ -1369,7 +798,15 @@ parseString :: String -> Either Error Program
 
 \begin_layout Standard
 This function is rather straight forward as it simply parses a given input
- string to a program or an error if the input string is invalid.
+ string to a 
+\family typewriter
+Program
+\family default
+ or an 
+\family typewriter
+Error
+\family default
+ if the input string is invalid.
 \end_layout
 
 \begin_layout Paragraph
@@ -1393,8 +830,14 @@ Error
 \end_layout
 
 \begin_layout Standard
-I have defined the Error type to be of the following
+I have defined the Error type to be of what is shown in Figure 1.
 \end_layout
+
+\begin_layout LyX-Code
+\begin_inset Float figure
+wide false
+sideways false
+status collapsed
 
 \begin_layout LyX-Code
 data Error = NoParsePossible String
@@ -1406,6 +849,23 @@ data Error = NoParsePossible String
 
 \begin_layout LyX-Code
            | UnexpectedRemainder Program String
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption
+
+\begin_layout Plain Layout
+My Error date type.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -1442,37 +902,43 @@ Comment on the use of +++ and <++
 
 \end_layout
 
+\begin_layout Standard
+These functions are generally not that interesting as they follow the grammar
+ very strict, the following will therefore not be a very in-depth explanation,
+ as there is not much depth to talk about.
+\end_layout
+
 \begin_layout Paragraph
-parse
+parse :: ReadP Program -> String -> Either Error Program
 \end_layout
 
 \begin_layout Standard
 This function takes a parser 
-\emph on
+\family typewriter
 p
-\emph default
+\family default
  of type 
 \family typewriter
 ReadP Program 
 \family default
 and a string 
-\emph on
+\family typewriter
 s
-\emph default
+\family default
  and parses 
-\emph on
+\family typewriter
 s
-\emph default
+\family default
  with 
-\emph on
+\family typewriter
 p
-\emph default
+\family default
  and and returns the parsed program or the appropriate error if the input
  did not adhere to the grammar.
 \end_layout
 
 \begin_layout Paragraph
-runParser
+runParser :: ReadP Program
 \end_layout
 
 \begin_layout Standard
@@ -1481,10 +947,14 @@ This parser is a wrapper for the
 pProgram
 \family default
  parser and simply makes sure to skip spaces both before and after parsing
- a program and also makes sure that we are at the end of the input after
- parsing a program.
+ a 
+\family typewriter
+Program
+\family default
+ and also makes sure that we are at the end of the input after parsing a
+ program.
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 Doesn't this remove the need of the 'UnexpectedRemainder' error?
@@ -1496,15 +966,19 @@ Doesn't this remove the need of the 'UnexpectedRemainder' error?
 \end_layout
 
 \begin_layout Paragraph
-pProgram
+pProgram :: ReadP Program
 \end_layout
 
 \begin_layout Standard
-Parses a program by trying to parse a list of definitions and or commands.
+Parses a 
+\family typewriter
+Program
+\family default
+ by trying to parse a list of definitions and or commands.
 \end_layout
 
 \begin_layout Paragraph
-pDefComs
+pDefComs :: ReadP [DefCom]
 \end_layout
 
 \begin_layout Standard
@@ -1513,7 +987,7 @@ Parses a single definition or command and then tries to parse a list of
 \end_layout
 
 \begin_layout Paragraph
-pDefComs'
+pDefComs' :: ReadP [DefCom]
 \end_layout
 
 \begin_layout Standard
@@ -1522,7 +996,7 @@ Parses either a list of commands and or definitions, nothing or a symmetric
 \end_layout
 
 \begin_layout Paragraph
-pDefCom
+pDefCom :: ReadP DefCom
 \end_layout
 
 \begin_layout Standard
@@ -1530,7 +1004,7 @@ Parses either a command or a definition.
 \end_layout
 
 \begin_layout Paragraph
-pDefinition
+pDefinition :: ReadP Definition
 \end_layout
 
 \begin_layout Standard
@@ -1564,7 +1038,7 @@ hGroup
 \end_layout
 
 \begin_layout Paragraph
-pCommand
+pCommand :: ReadP Command
 \end_layout
 
 \begin_layout Standard
@@ -1601,14 +1075,14 @@ This parses a command2 type which is either a move, bracketed or a series
 \end_layout
 
 \begin_layout Paragraph
-pCommand'
+pCommand' :: Command -> ReadP Command
 \end_layout
 
 \begin_layout Standard
 Either parses a '||' command followed by another command' parsing or nothing.
  
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 Here the parser does not use the symmetric choice operator '+++' but instead
@@ -1622,7 +1096,7 @@ Here the parser does not use the symmetric choice operator '+++' but instead
 \end_layout
 
 \begin_layout Paragraph
-pCommand2
+pCommand2 :: ReadP Command
 \end_layout
 
 \begin_layout Standard
@@ -1631,7 +1105,7 @@ First parses a command3 then parses a command2' with the command3 as incoming
 \end_layout
 
 \begin_layout Paragraph
-pCommand2'
+pCommand2' :: Command -> ReadP Command
 \end_layout
 
 \begin_layout Standard
@@ -1649,7 +1123,7 @@ status open
 \end_layout
 
 \begin_layout Paragraph
-pCommand3
+pCommand3 :: ReadP Command
 \end_layout
 
 \begin_layout Standard
@@ -1657,7 +1131,7 @@ Parses either a move command or a command wrapped in a set of curly-brackets.
 \end_layout
 
 \begin_layout Paragraph
-pVIdents
+pVIdents :: ReadP [Ident]
 \end_layout
 
 \begin_layout Standard
@@ -1665,7 +1139,7 @@ Parses a single vident followed by possible a list of vidents.
 \end_layout
 
 \begin_layout Paragraph
-pVIdents'
+pVIdents' :: ReadP [Ident]
 \end_layout
 
 \begin_layout Standard
@@ -1673,7 +1147,7 @@ Parses a list of vidents or nothing.
 \end_layout
 
 \begin_layout Paragraph
-pSIdents
+pSIdents :: ReadP [Ident]
 \end_layout
 
 \begin_layout Standard
@@ -1681,7 +1155,7 @@ Parses a single sident followed by possible a list of sidents.
 \end_layout
 
 \begin_layout Paragraph
-pSIdents'
+pSIdents' :: ReadP [Ident]
 \end_layout
 
 \begin_layout Standard
@@ -1689,7 +1163,7 @@ Parses a list of sidents or nothing.
 \end_layout
 
 \begin_layout Paragraph
-pPos
+pPos :: ReadP Pos
 \end_layout
 
 \begin_layout Standard
@@ -1705,7 +1179,7 @@ Rel
 \end_layout
 
 \begin_layout Paragraph
-pExpr
+pExpr :: ReadP Expr
 \end_layout
 
 \begin_layout Standard
@@ -1718,36 +1192,36 @@ pExpr'
 \end_layout
 
 \begin_layout Paragraph
-pExpr'
+pExpr' :: Expr -> ReadP Expr
 \end_layout
 
 \begin_layout Standard
 Starts by parsing either a plus or minus expression 
-\emph on
+\family typewriter
 e
-\emph default
+\family default
  with the incoming value and then another expr' with 
-\emph on
+\family typewriter
 e
-\emph default
+\family default
 , otherwise it parses nothing by just returning the incoming value.
 \end_layout
 
 \begin_layout Paragraph
-pOp
+pOp :: Expr -> ReadP Expr
 \end_layout
 
 \begin_layout Standard
 Takes an incoming expression and either parses a plus or a minus, then the
- next prim and returns this.
+ associated prim and returns either a plus or minus expression.
 \end_layout
 
 \begin_layout Paragraph
-pPrim
+pPrim :: ReadP Expr
 \end_layout
 
 \begin_layout Standard
-Parses a either an integer, an expression contained within a set of parenthesis
+Parses either an integer, an expression contained within a set of parenthesis
  or either an 
 \family typewriter
 Xproj
@@ -1756,22 +1230,11 @@ Xproj
 \family typewriter
 Yproj
 \family default
-.
- 
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Rephrase!!
-\end_layout
-
-\end_inset
-
-
+ expression.
 \end_layout
 
 \begin_layout Paragraph
-pProj
+pProj :: Ident -> ReadP Expr
 \end_layout
 
 \begin_layout Standard
@@ -1788,7 +1251,7 @@ Yproj
 \end_layout
 
 \begin_layout Paragraph
-pColour
+pColour :: ReadP Colour
 \end_layout
 
 \begin_layout Standard
@@ -1796,7 +1259,7 @@ Parses one of the defined colours.
 \end_layout
 
 \begin_layout Paragraph
-pVIdent
+pVIdent :: ReadP Ident
 \end_layout
 
 \begin_layout Standard
@@ -1805,18 +1268,21 @@ Simply parses a vident and skips all white spaces both before and after
 \end_layout
 
 \begin_layout Paragraph
-pSIdent
+pSIdent :: ReadP Ident
 \end_layout
 
 \begin_layout Standard
-Parses a sident and as same as the above also skips all white spaces both
- before and after the word.
+Parses a sident and, as same as 
+\family typewriter
+pVIdent
+\family default
+, also skips all white spaces both before and after the word.
  If the parsed word is one of the reserved words or one of the colour names
  then it fails, otherwise it returns the parsed word.
 \end_layout
 
 \begin_layout Paragraph
-pInteger
+pInteger :: ReadP Integer
 \end_layout
 
 \begin_layout Standard
@@ -1838,81 +1304,90 @@ Helper functions
 \end_layout
 
 \begin_layout Paragraph
-bracks
+bracks :: Char -> ReadP b -> Char -> ReadP b
 \end_layout
 
 \begin_layout Standard
-Takes in two a characters 
-\emph on
+Takes in two characters 
+\family typewriter
 a
-\emph default
+\family default
  and 
-\emph on
+\family typewriter
 b
-\emph default
+\family default
  and a parser 
-\emph on
+\family typewriter
 p
-\emph default
+\family default
 , and parses the 
-\emph on
+\family typewriter
 a
-\emph default
+\family default
  and 
-\emph on
+\family typewriter
 b
-\emph default
+\family default
  around the parsing of 
-\emph on
+\family typewriter
 p
-\emph default
+\family default
  with the use of 
 \family typewriter
 charT
 \family default
  and returns the result from 
-\emph on
+\family typewriter
 p
-\emph default
+\family default
 .
 \end_layout
 
 \begin_layout Paragraph
-stringT
+stringT :: String -> ReadP ()
 \end_layout
 
 \begin_layout Standard
 Parses a given string 
-\emph on
+\family typewriter
 s
-\emph default
+\family default
  and skips white spaces around 
+\family typewriter
+s
+\family default
 \emph on
-s.
+.
 \end_layout
 
 \begin_layout Paragraph
-charT
+charT :: Char -> ReadP ()
 \end_layout
 
 \begin_layout Standard
 Parses a given character 
-\emph on
-a
-\emph default
+\family typewriter
+c
+\family default
  and skips white spaces around 
+\family typewriter
+c
+\family default
 \emph on
-a.
-\end_layout
-
-\begin_layout Subsection
-Tests?
+.
 \end_layout
 
 \begin_layout Section
 Question 2: Interpreting 
 \noun on
 Salsa
+\end_layout
+
+\begin_layout Standard
+In this section I will try and implement a Salsa interpreter in Haskell
+ with the use of two monads.
+ First I want to list the assumptions that I have taken while working on
+ the implementation, followed by a description of my code.
 \end_layout
 
 \begin_layout Standard
@@ -1929,41 +1404,50 @@ Initial Comments/Introduction to the question:
 \end_layout
 
 \begin_layout Subsection
-Any assumptions
+My assumptions
 \end_layout
 
-\begin_layout Standard
-- How the coordinate system is defined, see page 8 - top.
+\begin_layout Itemize
+As the assignment text specifies then I assume that the given input 
+\family typewriter
+Program
+\family default
+ is a valid 
+\family typewriter
+Program
+\family default
+ in that sense that it will not cause any compile errors.
+ Allowing me to use the Haskell function 
+\family typewriter
+error
+\family default
+ to throw an error if an invalid 
+\family typewriter
+Program
+\family default
+ should be used in the interpreter.
 \end_layout
 
-\begin_layout Standard
-- The position of the different shapes, i.e.
- their anchor points/pivot points.
-\end_layout
-
-\begin_layout Standard
-- 
-\begin_inset Quotes eld
-\end_inset
-
-All of these can be checked statically prior to executing the Salsa program,
- hence you don’t have to worry about proper error handling in this question.
- If you encounter an error, you should halt the interpreter by calling the
- built-in Haskell function error.
- Writing the static check, as a separate pass over the abstract syntax tree,
- is not part of the exam.
-\begin_inset Quotes erd
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Specify what should happen with 
+\begin_layout Itemize
+I was unsure of what a nested 
+\family typewriter
+At
+\family default
+ command should be interpreted to.
+ I decided that an inner 
+\family typewriter
+At
+\family default
+ does not consider an outer and visa versa meaning that a nested 
+\family typewriter
+At
+\family default
+ command will only be visible for the innermost 
+\family typewriter
+At
+\family default
+ command.
+ Consider the case 
 \begin_inset Quotes eld
 \end_inset
 
@@ -1971,9 +1455,64 @@ b -> (0,0) @ A @ B
 \begin_inset Quotes erd
 \end_inset
 
-: I was unable to deduce from the assignment text what exactly should happen
- in the case of ..
- I assume that ..
+, here first B will be set as the active view, then A and then the move
+ is performed while A is active and this no effect on B.
+\end_layout
+
+\begin_layout Itemize
+I assume that when defining a group the same name cannot appear twice in
+ the list.
+\end_layout
+
+\begin_layout Itemize
+I assume that you cannot have group names inside a the list of views in
+ a group definition.
+\end_layout
+
+\begin_layout Itemize
+I assume that no two names can be used to define two things.
+\end_layout
+
+\begin_layout Itemize
+I assume that the first 
+\family typewriter
+DefCom
+\family default
+ will always be a view definition, as it does not make sense to perform
+ any operations on a non-existing view.
+\end_layout
+
+\begin_layout Itemize
+A shape can only be moved around within a view it has been defined, i.e.
+ a shape that has not been defined within a view A can never appear in A.
+\end_layout
+
+\begin_layout Itemize
+The list of frames goest from left to right, i.e.
+ the first keyframe is the first element of the list and the last keyframe
+ is the last element.
+\end_layout
+
+\begin_layout Itemize
+I assume that a shape is allowed to move outside of the bounds of a view
+ that it has been define in.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+- How the coordinate system is defined, see page 8 - top.
+\end_layout
+
+\begin_layout Plain Layout
+- The position of the different shapes, i.e.
+ their anchor points/pivot points.
+\end_layout
+
+\begin_layout Plain Layout
+frame starts empty
 \end_layout
 
 \end_inset
@@ -1986,11 +1525,231 @@ The Code
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
+My implementation of the Salsa interpreter can be found in the file 
+\emph on
+SalsaInterp.hs
+\emph default
+ which defines and implements the module 
+\emph on
+SalsaInterp
+\emph default
+.
+ It exports the type 
+\family typewriter
+Position
+\family default
+ and the two functions 
+\family typewriter
+interpolate
+\family default
+ and 
+\family typewriter
+runProg
+\family default
+.
+ The associated test file is 
+\emph on
+Test_Interp.hs
+\emph default
+ and is further described in 
+\series bold
+Appendix A
+\series default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Interface functions
+\end_layout
+
+\begin_layout Paragraph
+interpolate :: Integer -> Position -> Position -> [Position]
+\end_layout
+
+\begin_layout Standard
+This function takes an 
+\family typewriter
+Integer
+\family default
+ 
+\family typewriter
+n
+\family default
+, a start 
+\family typewriter
+Position
+\family default
+ 
+\family typewriter
+p1
+\family default
+ and an end 
+\family typewriter
+Position
+\family default
+ 
+\family typewriter
+p2
+\family default
+ and interpolates between the two positions.
+ In other words the function calculates the distribution of points in a
+ straight line from 
+\family typewriter
+p1
+\family default
+ to 
+\family typewriter
+p2
+\family default
+, including 
+\family typewriter
+p2
+\family default
+ and excluding 
+\family typewriter
+p1
+\family default
+, where the number of calculated points are equal to 
+\family typewriter
+n
+\family default
+, where their is an equal distance from any point to the neighbor point.
+\end_layout
+
+\begin_layout Standard
+The function assumes that 
+\family typewriter
+n
+\family default
+ is non-negative.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+It is implemented by considering a straight line between 
+\family typewriter
+p1
+\family default
+ and 
+\family typewriter
+p2
+\family default
+ and then 'slice' it up in n equal sizes and then returning each 'slice'
+ point and including the end point, or excluding the start point if you
+ will.
+ I have avoided using floating point values, and the chaos they apparently
+ brought with them, to consider the length of each slice to be from 
+\begin_inset Formula $0-100$
+\end_inset
+
+ instead of 
+\begin_inset Formula $0.0-1.0$
+\end_inset
+
+, which does lose me some precession, but I gain a lot more readable code
+ and as we have to return integers anyway, the loss is very slim.
+\end_layout
+
+\begin_layout Paragraph
+runProg :: Integer -> Program -> Animation
+\end_layout
+
+\begin_layout Standard
+This function initiates and runs an interpretation of a giving Program p
+ with a given frame rate n, and returns the produced Animation.
+ It initiates a 
+\family typewriter
+Salsa
+\family default
+ monad with an empty context and then interprets each 
+\family typewriter
+DefCom
+\family default
+ in the given 
+\family typewriter
+Program
+\family default
+.
+\end_layout
+
+\begin_layout Subsubsection
+Context
+\end_layout
+
+\begin_layout Standard
+As one can see in Figure 2 I have decided to let the context be a two part
+ thing, where the first part represents the read-only environment, which
+ is read-only for the 
+\family typewriter
+SalsaCommand
+\family default
+ monad and the second part is the read-write state.
+\end_layout
+
+\begin_layout Standard
+I have named the first part 
+\family typewriter
+ConEnvironment
+\family default
+ which is a type alias for a tuple of three elements: an 
+\family typewriter
+Environment
+\family default
+ for binding idents to definitions, a list of the active views and an integer
+ representing the given frame rate.
+\end_layout
+
+\begin_layout Standard
+The second part is named 
+\family typewriter
+State
+\family default
+ and is a mapping from an identifier 
+\family typewriter
+Ident
+\family default
+ to a list of views and positions, describing the current location of each
+ shape in each view they have been defined in.
+\end_layout
+
+\begin_layout LyX-Code
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout LyX-Code
+data Context = Context ConEnvironment State
+\end_layout
+
+\begin_layout LyX-Code
+type ConEnvironment = (Environment, [Ident], Integer)
+\end_layout
+
+\begin_layout LyX-Code
+type Environment = M.Map Ident Definition
+\end_layout
+
+\begin_layout LyX-Code
+type State = M.Map Ident [(Ident,Position)]
+\end_layout
 
 \begin_layout Plain Layout
-Comment on the remaining warnings and hints.
+\begin_inset Caption
+
+\begin_layout Plain Layout
+My implementation of the 
+\family typewriter
+Context
+\family default
+ data type.
 \end_layout
 
 \end_inset
@@ -1998,20 +1757,948 @@ Comment on the remaining warnings and hints.
 
 \end_layout
 
-\begin_layout Subsubsection
-The Monad(s)
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I have also implemented a few functions to work on a 
+\family typewriter
+Context
+\family default
+ and 
+\family typewriter
+Animation
+\family default
+.
+ These are described in 
+\series bold
+Appendix D
+\series default
+.
 \end_layout
 
 \begin_layout Subsubsection
-Interface functions
+The Monads
+\end_layout
+
+\begin_layout Standard
+I have created two monads that when used together does the interpretation
+ of a given 
+\family typewriter
+Program
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+The first one is named 
+\family typewriter
+SalsaCommand
+\family default
+ and its type declaration can be seen in Figure 3.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout LyX-Code
+newtype SalsaCommand a = SalsaCommand {runSC :: Context -> (a,State)}
+\begin_inset Caption
+
+\begin_layout Plain Layout
+My definition of the 
+\family typewriter
+SalsaCommand
+\family default
+ monad.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As one might notice then it takes a 
+\family typewriter
+Context
+\family default
+ and returns some value 
+\family typewriter
+a
+\family default
+ and a 
+\family typewriter
+State
+\family default
+, disallowing the monad to manipulate with the given 
+\family typewriter
+Context
+\family default
+
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+ as it cannot return a complete new 
+\family typewriter
+Context
+\family default
+ only the second part of one
+\end_layout
+
+\end_inset
+
+
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Am I sure of this???!?!?!
+\end_layout
+
+\end_inset
+
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+The second one is the 
+\family typewriter
+Salsa
+\family default
+ monad which has the declaration that can be seen in Figure 4.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
+
+\begin_layout LyX-Code
+data Salsa a = Salsa ((Context,Animation) -> (a,(Context,Animation)))
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption
+
+\begin_layout Plain Layout
+My declaration of the 
+\family typewriter
+Salsa
+\family default
+ monad.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is a state monad that carries around a 
+\family typewriter
+Context
+\family default
+ and the 
+\family typewriter
+Animation
+\family default
+ that is being built.
+ I decided to let the 
+\family typewriter
+Salsa
+\family default
+ monad carry these two around to easily manipulate with the two and return
+ the completed 
+\family typewriter
+Animation
+\family default
+ once done.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The actual Monad instantiating of the two types shown above can be seen
+ in 
+\series bold
+Appendix E
+\series default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+My overall strategy for using the two monads is to let 
+\family typewriter
+Salsa
+\family default
+ be the top dog and the interface to the actual interpretation, it self
+ interprets all definitions and builds up the context environment (part
+ 1) and it then uses the 
+\family typewriter
+SalsaCommand
+\family default
+ monad to interpret the commands.
+ After the 
+\family typewriter
+Salsa
+\family default
+ monad has let a 
+\family typewriter
+SalsaCommand
+\family default
+ monad interpret a command and return the next 
+\family typewriter
+State
+\family default
+ of the 
+\family typewriter
+Context
+\family default
+, the 
+\family typewriter
+Salsa
+\family default
+ monad compares the previous 
+\family typewriter
+State
+\family default
+ with the new returned 
+\family typewriter
+State
+\family default
+ and generates all the needed draw instructions by interpolation between
+ the two 
+\family typewriter
+State
+\family default
+s for each shape in each view where it has moved.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+Salsa
+\family default
+ then updates the global 
+\family typewriter
+Context
+\family default
+ to contain the new 
+\family typewriter
+State
+\family default
+ returned from the 
+\family typewriter
+SalsaCommand
+\family default
+.
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+The following is a short description of a set of functions to update the
+ monads.
+\end_layout
+
+\begin_layout Paragraph
+askCmd :: SalsaCommand Context
+\end_layout
+
+\begin_layout Standard
+This function simply fetches the 
+\family typewriter
+Context
+\family default
+ inside a 
+\family typewriter
+SalsaCommand
+\family default
+ monad.
+\end_layout
+
+\begin_layout Paragraph
+updateState :: (Context -> State) -> SalsaCommand ()
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+updateState
+\family default
+ takes a function 
+\family typewriter
+f
+\family default
+ that performs some operation on a 
+\family typewriter
+Context
+\family default
+ and returns a 
+\family typewriter
+State
+\family default
+ and performs 
+\family typewriter
+f
+\family default
+ on the 
+\family typewriter
+Context
+\family default
+ within 
+\family typewriter
+SalsaCommand
+\family default
+ to alter the eventual returned 
+\family typewriter
+State
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+askCont :: Salsa Context
+\end_layout
+
+\begin_layout Standard
+Does the same as 
+\family typewriter
+askCmd
+\family default
+, except now we fetch the 
+\family typewriter
+Context
+\family default
+ inside a 
+\family typewriter
+Salsa
+\family default
+ monad instead.
+\end_layout
+
+\begin_layout Paragraph
+runSalsa :: Context -> Salsa a -> (a,(Context,Animation))
+\end_layout
+
+\begin_layout Standard
+As the name implied this function takes some initial 
+\family typewriter
+Context
+\family default
+, a 
+\family typewriter
+Salsa
+\family default
+ monad and runs the monad, i.e.
+ starts it.
+\end_layout
+
+\begin_layout Paragraph
+updateContext :: (Context -> Context) -> Salsa ()
+\end_layout
+
+\begin_layout Standard
+This function takes a function 
+\family typewriter
+f
+\family default
+ that takes a 
+\family typewriter
+Context
+\family default
+ and returns a 
+\family typewriter
+Context
+\family default
+, and applies this function 
+\family typewriter
+f
+\family default
+ to the inner 
+\family typewriter
+Context
+\family default
+ of a 
+\family typewriter
+Salsa
+\family default
+ monad.
+\end_layout
+
+\begin_layout Paragraph
+updateAnimation :: (Animation -> Animation) -> Salsa ()
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+updateAnimation
+\family default
+ takes a function 
+\family typewriter
+f
+\family default
+, that performs some operations on an 
+\family typewriter
+Animation
+\family default
+ and returns another 
+\family typewriter
+Animation
+\family default
+, and applies 
+\family typewriter
+f
+\family default
+ to the 
+\family typewriter
+Animation
+\family default
+ part of the state of a 
+\family typewriter
+Salsa
+\family default
+ monad.
 \end_layout
 
 \begin_layout Subsubsection
-Implementation functions
+Interpret functions
+\end_layout
+
+\begin_layout Paragraph
+command :: Command -> SalsaCommand ()
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+command
+\family default
+ function interprets a 
+\family typewriter
+Command
+\family default
+ 
+\family typewriter
+cmd
+\family default
+ within a 
+\family typewriter
+SalsaCommand
+\family default
+ monad.
+\end_layout
+
+\begin_layout Standard
+If 
+\family typewriter
+cmd
+\family default
+ is a 
+\family typewriter
+Move
+\family default
+ command then for each given shape id 
+\family typewriter
+sid
+\family default
+ we must for each view that 
+\family typewriter
+sid
+\family default
+ is located in, check if any of these are one of the currently active views,
+ and if so we must update our position accordingly to the 
+\family typewriter
+Move
+\family default
+ command.
+\end_layout
+
+\begin_layout Standard
+If is an 
+\family typewriter
+At
+\family default
+ command then we must update the active views to be of some temporary value,
+ then execute the given command and then revert the active views to their
+ previous self.
+ But, as the 
+\family typewriter
+SalsaCommand
+\family default
+ cannot change the 
+\family typewriter
+ConEnvironment
+\family default
+ part, then we cannot update the currently active views, what we can do
+ instead is to alter the 
+\family typewriter
+State
+\family default
+ value of the 
+\family typewriter
+Context
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+My trick is to use the 
+\family typewriter
+setTmpActiveViews
+\family default
+ helper function to go through the 
+\family typewriter
+State
+\family default
+ and look at each view in each binding and if the view is one of the temporary
+ active views then I map it to one of the actual active views, and remember
+ this mapping.
+ This is done through the entire 
+\family typewriter
+State
+\family default
+, followed by now mapping all the actives views that are distinct from the
+ set of temporary views to some random value that I know no one can have,
+ namely something with an underscore as the first letter, of course these
+ mappings are also remembered.
+\end_layout
+
+\begin_layout Standard
+Now I can run the given command with the updated 
+\family typewriter
+State
+\family default
+, and when it returns I use my mappings from before to swap back, and then
+ I have not changed the 
+\family typewriter
+Context
+\family default
+ and was still able to update the list of active views.
+ Although this sounds very time consuming and I bet it is, a more reasonable
+ way would merely to update the first part of the Context, and then run
+ the command, but as I cannot see how this can be done without change the
+ type of the monad, this is not an option.
+\end_layout
+
+\begin_layout Standard
+The 
+\family typewriter
+Par
+\family default
+ command is a really easy one as it simply just executes the two commands.
+\end_layout
+
+\begin_layout Paragraph
+defCom :: DefCom -> Salsa ()
+\end_layout
+
+\begin_layout Standard
+This interpret function either interprets a 
+\family typewriter
+Definition
+\family default
+ or a 
+\family typewriter
+Command
+\family default
+, if it is a definition then nothing further needs to be done beside interpretin
+g it, but if it wants to interpret a 
+\family typewriter
+Command
+\family default
+ then a 
+\family typewriter
+SalsaCommand
+\family default
+ is used with the current 
+\family typewriter
+Context
+\family default
+ of the running 
+\family typewriter
+Salsa
+\family default
+ monad, when the monad returns then we must compare the 
+\family typewriter
+State
+\family default
+ returned from the 
+\family typewriter
+SalsaCommand
+\family default
+ with our own and generate a set of instructions to go from the previous
+ state to the next.
+ These instructions must be added to the current frame and then as we went
+ from one keyframe to the next, we must also ensure this by beginning a
+ new frame.
+\end_layout
+
+\begin_layout Paragraph
+definition :: Definition -> Salsa ()
+\end_layout
+
+\begin_layout Standard
+This function interprets a given 
+\family typewriter
+Definition
+\family default
+.
+ If it is a view definition then we evaluate the given size expressions,
+ add the definition to the environment, update it to be the list of active
+ views, and add the view to the list of defined views in the 
+\family typewriter
+Animation
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+If the definition is a simple 
+\family typewriter
+View
+\family default
+ defeinition meaning that it is not the same as above, but a statement to
+ change the set of active views, then we do so by retrieving the list that
+ corresponds to the given id and update the 
+\family typewriter
+Context
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+If it is a group definition then we add the binding to our environment and
+ set the given list of view names to be the list of active views.
+\end_layout
+
+\begin_layout Standard
+If we get a shape definition then we evaluate the provided values, add it
+ to our environment, draw the shape in the current keyframe and in all current
+ views.
+ Furthermore we update our 
+\family typewriter
+State
+\family default
+ value to contain the new shape in the current active views.
+\end_layout
+
+\begin_layout Subsubsection
+Interpret helper functions
+\end_layout
+
+\begin_layout Paragraph
+evalNextPoint :: Pos -> Position -> SalsaCommand Position
+\end_layout
+
+\begin_layout Standard
+This function simply takes a Pos and a Position pos and evaluates Pos and
+ returns either a absolut position or a reletive one acording to Pos.
+\end_layout
+
+\begin_layout Paragraph
+setTmpActiveViews :: State -> [Ident] -> [Ident] -> SalsaCommand (State,[((Ident
+,Ident),Ident)])
+\end_layout
+
+\begin_layout Standard
+As already mentioned then this function takes some 
+\family typewriter
+State
+\family default
+, a list of active views and a list of temporary views then it maps all
+ occurrences of the temporary views in the 
+\family typewriter
+State
+\family default
+ with one of the active views, and then follows by mapping all occurrences
+ of the active views that are distinct from the list of temporary list with
+ a somewhat random value prefixed with an underscore, then it returns the
+ new state and the list of all the mappings.
+\end_layout
+
+\begin_layout Paragraph
+revertActiveViews :: State -> [((Ident,Ident),Ident)] -> SalsaCommand State
+\end_layout
+
+\begin_layout Standard
+This function takes some 
+\family typewriter
+State
+\family default
+ 
+\family typewriter
+s
+\family default
+ and a list of mappings and reverts those mappings on 
+\family typewriter
+s
+\family default
+ and returns this in the monad SalsaCommand.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+But how..
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Paragraph
+setNextPosition :: Eq t => [t] -> Pos -> (t, Position) -> SalsaCommand (t,
+ Position)
+\end_layout
+
+\begin_layout Standard
+This function takes a list of views 
+\family typewriter
+w
+\family default
+, a point and a tuple with a view 
+\family typewriter
+v
+\family default
+ and a position.
+ If 
+\family typewriter
+v
+\family default
+ is in the list of views 
+\family typewriter
+w
+\family default
+, then the position must be updated in the tuple to be the result of the
+ point and the position evaluated into one 
+\family typewriter
+Position
+\family default
+.
+ If not then the same tuple that came in is also returned.
+\end_layout
+
+\begin_layout Paragraph
+getLowestPosition :: Position -> (ViewName,Position) -> Position
+\end_layout
+
+\begin_layout Standard
+Returns the lowest x-coordinate and the lowest y-coordinate to be found
+ between the two given Positions.
+\end_layout
+
+\begin_layout Paragraph
+compareStates :: State -> State -> Salsa [GpxInstr] 
+\end_layout
+
+\begin_layout Standard
+This function compares two 
+\family typewriter
+State
+\family default
+s and generates draw instructions for each shape 
+\family typewriter
+s
+\family default
+ and for each view 
+\family typewriter
+s
+\family default
+ has been moved in.
+\end_layout
+
+\begin_layout Paragraph
+generateInstructions :: Definition -> Integer -> [(ViewName, Position)]
+ -> [(ViewName, Position)] -> Salsa [Frame]
+\end_layout
+
+\begin_layout Standard
+This function is a helper to the compareStates function and generates a
+ list of instructions for the given Definition, frame rate, list of old
+ positions and list of new positions.
+\end_layout
+
+\begin_layout Paragraph
+positionToInstr :: Definition -> ViewName -> Position -> Salsa GpxInstr
+\end_layout
+
+\begin_layout Standard
+This functions creates a single draw instruction with for the specific shape,
+ view and position.
+\end_layout
+
+\begin_layout Paragraph
+evalExpr :: Monad m => Expr -> m Context -> m Integer
+\end_layout
+
+\begin_layout Standard
+This function takes an 
+\family typewriter
+Expr
+\family default
+ 
+\family typewriter
+e
+\family default
+ to be evaluated and something that can provide us with some context to
+ use when evaluating 
+\family typewriter
+Xproj
+\family default
+ and 
+\family typewriter
+Yproj
+\family default
+ as these require that we look in the State of the 
+\family typewriter
+Context
+\family default
+ to determine what is the lowest either 
+\family typewriter
+x
+\family default
+ or 
+\family typewriter
+y
+\family default
+ value of a given shape.
+ I have made the function generic by letting the 'ask' function be a parameter
+ so that both the 
+\family typewriter
+Salsa
+\family default
+ and the 
+\family typewriter
+SalsaCommand
+\family default
+ monad can use the function.
 \end_layout
 
 \begin_layout Subsubsection
 Helper functions
+\end_layout
+
+\begin_layout Paragraph
+lookupKey :: Ord a => a -> M.Map a b -> b
+\end_layout
+
+\begin_layout Standard
+This function simply performs a lookup in a given tree with the key 
+\family typewriter
+a
+\family default
+ and returns the mapped value, if no mapping was found then an error is
+ raised.
+\end_layout
+
+\begin_layout Paragraph
+removeDouble :: [a] -> [a] -> [a]
+\end_layout
+
+\begin_layout Standard
+This function takes a list 
+\family typewriter
+x
+\family default
+ and a list 
+\family typewriter
+y
+\family default
+ and returns the list 
+\family typewriter
+z
+\family default
+, where 
+\family typewriter
+z
+\family default
+ is the list that is left of 
+\family typewriter
+x
+\family default
+ when all elements that both exist in 
+\family typewriter
+x
+\family default
+ and 
+\family typewriter
+y
+\family default
+ has been pulled out of 
+\family typewriter
+x
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+evalColour :: Colour -> ColourName
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+evalColour
+\family default
+ merely returns the respected string representation for a Colour type.
+\end_layout
+
+\begin_layout Paragraph
+getLast :: [a] -> ([a],[a])
+\end_layout
+
+\begin_layout Standard
+getLast takes in a list and returns a tuple where the first element is the
+ whole input list expect for the last element and the second element of
+ the tuple is the last element of the list wrapped in a list.
 \end_layout
 
 \begin_layout Section
@@ -2019,94 +2706,49 @@ Question 3: Atomic Transaction Server in Erlang
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Initial Comments/Introduction to the question:
-\end_layout
-
-\end_inset
-
-
+In this section I will implement an atomic transactions server using Erlang.
 \end_layout
 
 \begin_layout Standard
-I decided to use gen_server,
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
- why? What I could else have done/used?
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-This also explains all the 'comments' in the file.
+I decided to use OTP for implementing my atomic transaction server, as this
+ allows me to save a lot of time building up the server from the ground
+ up, and provides me and the reader with a standardized interface and behavior.
+ I chose 
+\emph on
+gen_server
+\emph default
+ over the other OTP like 
+\emph on
+gen_fsm
+\emph default
+ because our server is not a finite state machine but instead a server taking
+ handling a lot of requests, where 
+\emph on
+gen_server
+\emph default
+ fits this task the best.
+ This also explains all the 'comments' in the file.
 \end_layout
 
 \begin_layout Subsection
-Any assumptions
+My assumptions
 \end_layout
 
-\begin_layout Standard
+\begin_layout Itemize
+I always assume that the given process id, of an atomic transaction server,
+ to all the interface function is indeed an atomic transaction server.
+ I do no error handling nor check on this input.
+\end_layout
+
+\begin_layout Itemize
+I make no assumptions on the given input State.
+\end_layout
+
+\begin_layout Itemize
+I assume that no one tries to tamper with the server nor the transactions
+ by guessing their process ids and sending them unwanted messages.
 \begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-- Define 'atomic transaction'
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-%% COM I always assume that AT is a valid at_server process id, this is
- never %% checked and if called with invalid value may result in unexpected
- error, behaviour or %% and endless waiting for a never responding process.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-%% COM I make no assumptions on the input State
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-- that no one tamper with the processes, that is send them some unwanted
- messages
-\end_layout
-
-\begin_layout Subsection
-General structure of the server, transactions, states and messages being
- passed (show some images?)
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 COM One could force the transactions to only receive/listen to messages
@@ -2119,11 +2761,14 @@ COM One could force the transactions to only receive/listen to messages
 
 \end_layout
 
+\begin_layout Subsection
+General structure of the server
+\end_layout
+
 \begin_layout Standard
-Before proceeding to my actual implementation then I want try and describe
- the overall structure of my atomic transaction server (ATS) and its managed
- transactions and requests.
- 
+Before proceeding to my actual implementation I want try and describe the
+ overall structure of my atomic transaction server (ATS) and its managed
+ transactions and requests, and some of the problems that arose.
 \end_layout
 
 \begin_layout Subsubsection
@@ -2140,7 +2785,7 @@ begin_t/1
  is called and this makes the ATS spawn a new transaction, which is in fact
  an ATS process in its self but 'loops' with another state data and expects
  different requests, but referred to as a 'transaction' or 'transactions'.
- All communication to a transaction is done through the ATS in which their
+ All communication to a transaction is done through the ATS in which they
  were begun.
 \begin_inset Note Note
 status collapsed
@@ -2158,14 +2803,15 @@ I have added the pid of their master in their state data so that they will
 update_t/3
 \family default
  call and when a timeout occurs while trying to stop a transaction, then
- a asynchronous message is sent instead.
+ a asynchronous stop message is sent instead.
 \end_layout
 
 \begin_layout Standard
 Each transaction could also just have been a tuple containing the unique
- reference, their current state and some status and the ATS would then simply
- just maintain a list of these, although this would disallow the opportunity
- to do any parallel work on the transactions which we can with 
+ reference, their current state and some status and not a whole process
+ and the ATS would then simply just maintain a list of these, although this
+ would disallow the opportunity to do any parallel work on the transactions
+ which we can now with 
 \family typewriter
 update_t/3
 \family default
@@ -2200,14 +2846,14 @@ What is that?
 \end_layout
 
 \begin_layout Standard
-The ATS loops with its current state, provided and updated by the client,
- and a pool of transactions.
- These can be idle transactions ready to be initiated as new transactions,
+The ATS loops with its current state, which is provided and updated by the
+ client, and a pool of transactions.
+ These can be idle transactions, ready to be initiated as new transactions,
  or ongoing transactions.
 \end_layout
 
 \begin_layout Standard
-A transactions also loops with its current state and a status.
+A transaction also loops with its current state and a status.
  This status allows the ATS to know whether the transaction is aborted,
  ready or idle.
 \end_layout
@@ -2217,10 +2863,10 @@ The status of each transaction and the management
 \end_layout
 
 \begin_layout Standard
-As mentioned a transaction can have the have one of the three status; aborted,
+As mentioned above a transaction can have one of the three status; aborted,
  ready or idle.
  aborted means that the transaction has been aborted and any further use
- while in with this status should return aborted.
+ while in this status should return aborted.
  ready is when the transaction has been begun but not aborted yet.
  idle means that the transaction is not used for anything right now and
  can be initiated by the ATS to act as a fresh transaction.
@@ -2236,11 +2882,14 @@ As mentioned a transaction can have the have one of the three status; aborted,
 \begin_layout Standard
 Although to avoid a lot of time spent communicating and waiting for responds
  from non-existing processes, then the ATS maintains it self a list of each
- transaction, by keeping their status, process id the associated unique
+ transactions, by keeping their status, process id and the associated unique
  reference.
  Where it is the unique reference that acts as the key into this list allowing
- the ATS to respond quickly with aborted if the process does not exist,
- is idle or already aborted.
+ the ATS to respond quickly with 
+\family typewriter
+aborted
+\family default
+ if the process does not exist, is idle or already aborted.
  Of course this lookup operation would always take 
 \begin_inset Formula $O(n)$
 \end_inset
@@ -2253,13 +2902,16 @@ Although to avoid a lot of time spent communicating and waiting for responds
  each time to know what their status is, and they might be busy with some
  expensive update function, and the alternative would also include the same
  lookup operation on a list of the same length, unless the ATS does not
- keep tracked of its transaction and therefore might risk waiting for responds
+ keep track of its transactions and therefore might risk waiting for responds
  from a process that might never respond.
 \end_layout
 
 \begin_layout Standard
 There is one time the ATS needs to ask a transaction before knowing, and
- this is when a transaction failed to update its state through a update_t/3
+ this is when a transaction failed to update its state through a 
+\family typewriter
+update_t/3
+\family default
  call as this is done asynchronously the server won't know until it asks
  the transaction.
  Although once the server knows then it updates its own list, so it won't
@@ -2273,6 +2925,13 @@ why not let the transaction send a message to the ATS once it knows himself?
  to late, and mixes up the system? (Could that happen?)
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
 \end_inset
 
 
@@ -2298,10 +2957,16 @@ what could be better? why didnt i do it? -> out of scope
 
 \begin_layout Standard
 When looking through my code one might notice that this status is not always
- maintained by the transaction it self, and this is because the ATS
-\end_layout
+ maintained by the transaction it self, and this is because the ATS gives
+ more credit to its own list, and will only ask transaction if it is listed
+ to be in status ready.
+\begin_inset Newline newline
+\end_inset
 
-\begin_layout Standard
+
+\begin_inset Newline newline
+\end_inset
+
 To sum um the above by answering to the posed problem:
 \end_layout
 
@@ -2319,24 +2984,28 @@ Also, processes waiting for answers from aborted transactions must be answered
 
 \begin_layout Standard
 My solution is to let the ATS maintain a list of the statuses of each ongoing
- transaction to responds quickly by avoiding the hassle to communicate with
+ transaction to respond quickly by avoiding the hassle to communicate with
  a process before answering.
 \end_layout
 
 \begin_layout Subsubsection
-The pool (list of transactions)
+The pool
 \end_layout
 
 \begin_layout Standard
-A like to use pools.
- There I said it.
- But I am aware that this might not be the intention, and that is why I
- defined a 'global-variable' in top of the 
+I like to use pools.
+ There, I said it.
+ But I am aware that this might not be the intention in this assignment,
+ and that is why I have defined a 'global-variable' in top of the 
 \emph on
 at_server
 \emph default
- module MIN_POOL that if set to true the ATS will not keep any idle transactions
- in its pool, with other words, not maintain a pool.
+ module 
+\family typewriter
+MIN_POOL
+\family default
+ that if set to true the ATS will not keep any idle transactions in its
+ pool, with other words, not maintain a pool.
 \end_layout
 
 \begin_layout Standard
@@ -2349,7 +3018,7 @@ at_server
 \begin_layout Standard
 The fact that I map the unique reference to a process id in the ATS allows
  me to maintain a pool of idle workers as when an idle transaction gets
- initiated as a new transaction a new reference is merely created and the
+ initiated as a new transaction, a new reference is merely created and the
  old association is updated to the new reference which is also returned
  to the client.
 \end_layout
@@ -2363,21 +3032,21 @@ The fact that I map the unique reference to a process id in the ATS allows
 
 \begin_layout Standard
 An argument for maintaining a pool could be that if the server is heavy
- used and many transactions are be begun and many are aborted due to either
+ used and many transactions are begun and many are aborted due to either
  failing functions or commits.
  A lot of overhead will come from destroying and creating all these processes
  and in such a case it could be better them let them 'stick-around' instead
  of being destroyed for a quicker revival.
- Of course if the server is barely used a pool would be of not much use,
+ Of course if the server is barely used, a pool would be of not much use,
  and might even cause extra overhead to keep these processes alive.
  An alternative could be to add these idle processes in a sleeping-queue
- avoiding that they waits any cpu cycles being idle.
+ avoiding that they wastes any cpu cycles being idle.
 \end_layout
 
 \begin_layout Standard
 As a side-note then I tried to do some small upscaled tests to test if any
  difference were to be found using the pool or not, but no noticeable difference
- were to be found.
+ were to be discovered.
 \end_layout
 
 \begin_layout Subsection
@@ -2393,7 +3062,15 @@ at_server
 \emph on
 at_extapi
 \emph default
- module and most of the interesting problems that arose.
+ module, which can be found in the files 
+\emph on
+at_server.erl
+\emph default
+ and 
+\emph on
+at_extapi.erl
+\emph default
+, and most of the interesting problems that arose.
  As already mentioned then I have defined the 
 \family typewriter
 MIN_POOL
@@ -2444,17 +3121,17 @@ TIME_OUT
 \family typewriter
 tryUpdate/0
 \family default
- test will fail with timeout in its fourth test case, which I for some reason
- cannot explain nor fix.
+ test will fail with 
+\family typewriter
+timeout
+\family default
+ in its fourth test case, which I for some reason cannot explain nor fix.
 \end_layout
 
 \begin_layout Paragraph
 start(State)
-\end_layout
-
-\begin_layout Standard
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 Use start or start_link?
@@ -2483,7 +3160,7 @@ Several ATSs can be started using
 \family typewriter
 start/1
 \family default
- and run indenpendently.
+ and run independently.
 \end_layout
 
 \begin_layout Standard
@@ -2524,8 +3201,20 @@ stop/1
  the processes are shutdown, or have some unexpected behavior.
 \end_layout
 
+\begin_layout Standard
+Of course with the exception that the 
+\family typewriter
+TIME_OUT
+\family default
+ value has been set to something other than 
+\family typewriter
+infinity
+\family default
+.
+\end_layout
+
 \begin_layout Paragraph
-doquery(AT, Fun) // must block
+doquery(AT, Fun)
 \end_layout
 
 \begin_layout Standard
@@ -2564,9 +3253,6 @@ doquery/2
 
 \begin_layout Paragraph
 begin_t(AT)
-\end_layout
-
-\begin_layout Standard
 \begin_inset Note Note
 status collapsed
 
@@ -2583,15 +3269,15 @@ The call to the server to create a new transaction is sent synchronous meaning
 \end_layout
 
 \begin_layout Standard
-Here a new transaction is initialized and keeps a copy of the current state
- of the given ATS and a unique reference to the transaction is returned.
+Here a new transaction is initialized and retrieves a copy of the current
+ state of the given ATS, and a unique reference to the transaction is returned.
  Updates and queries can then be performed on the new transaction, although
  it belongs to the ATS that it was created within, and can therefore not
  be used to update the state of some other ATS.
 \end_layout
 
 \begin_layout Standard
-For the unique reference then 
+For the unique reference, 
 \family typewriter
 make_ref()
 \family default
@@ -2614,7 +3300,7 @@ http://www.erlang.org/doc/man/erlang.html#make_ref-0
  it easier for the user to send unwanted messages to the transactions, stop
  it or in any other way mess it up.
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 Is the process id as unique as make_ref/0 ?
@@ -2626,7 +3312,7 @@ Is the process id as unique as make_ref/0 ?
 \end_layout
 
 \begin_layout Paragraph
-query_t(AT, Ref, Fun) // must block
+query_t(AT, Ref, Fun)
 \end_layout
 
 \begin_layout Standard
@@ -2676,7 +3362,7 @@ aborted
 \end_layout
 
 \begin_layout Paragraph
-update_t(AT, Ref, Fun) // must not block
+update_t(AT, Ref, Fun)
 \end_layout
 
 \begin_layout Standard
@@ -2694,8 +3380,11 @@ Ref
 Fun
 \family default
  with its current state.
- As the call is asynchronous update_t/3 always returns immediately with
- 
+ As the call is asynchronous 
+\family typewriter
+update_t/3
+\family default
+ always returns immediately with 
 \family typewriter
 ok
 \family default
@@ -2722,20 +3411,6 @@ Ref
 
 \begin_layout Paragraph
 commit_t(AT, Ref)
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-%% COM why sync and not async, since ass.
- text doesnt say anything 
-\end_layout
-
-\end_inset
-
-
 \end_layout
 
 \begin_layout Standard
@@ -2772,13 +3447,13 @@ If the commit was successful then the state of the ATS is updated to be
 s being aborted, including the one that was committed.
  Meaning that with every successful commit every transaction is aborted,
  and all future action on any previous transaction will return aborted,
- or ignore if the action is 
+ or ignored if the action is 
 \family typewriter
 update_t/3
 \family default
 , and the ATS is at a 'clean' state
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 What do I mean by this, clean state?
@@ -2797,8 +3472,9 @@ other
 \family typewriter
 aborted
 \family default
-, inclining that this transaction has been aborted, and therefore must be
- aborted after it has been committed.
+, inclining that this transaction has been aborted or will be aborted no
+ matter what, and therefore I choose that it must be aborted after it has
+ been committed.
 \begin_inset Note Note
 status collapsed
 
@@ -2818,11 +3494,13 @@ status collapsed
 \begin_inset Newline newline
 \end_inset
 
-The assignment text does not state wether this function must block or not,
- as it has done with some of the previous ones.
- I have chosen to make it a synchronous call to the ATS to let it be possible
- to return the proper return value to the caller, and to lock the master
- while he is committing to try and disallow any outside interference.
+I have chosen to make 
+\family typewriter
+commit/2
+\family default
+ a synchronous call to the ATS to let it be possible to return the proper
+ return value to the caller, and to lock the master while he is committing
+ to try and disallow any outside interference.
 \end_layout
 
 \begin_layout Paragraph
@@ -2859,8 +3537,15 @@ Ref
 \family default
  to be aborted.
  I have implemented this functionality by querying the transaction with
- a function that always raises an error, as shown below.
+ a function that always raises an error, as shown below in Figure 5.
 \end_layout
+
+\begin_layout LyX-Code
+\begin_inset Float figure
+placement H
+wide false
+sideways false
+status collapsed
 
 \begin_layout LyX-Code
 abort(AT, Ref) ->
@@ -2868,6 +3553,27 @@ abort(AT, Ref) ->
 
 \begin_layout LyX-Code
     at_server:query_t(AT,Ref,fun(_) -> error(force_abort) end).
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption
+
+\begin_layout Plain Layout
+My implementation of the Erlang function 
+\family typewriter
+abort/2
+\family default
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -2954,7 +3660,7 @@ Fun
 \family typewriter
 tryUpdate/2
 \family default
- is the return value of commit attempt.
+ is the return value of the commit attempt.
 \end_layout
 
 \begin_layout Standard
@@ -2962,7 +3668,11 @@ To allow
 \family typewriter
 tryUpdate/2
 \family default
- to return error if 
+ to return 
+\family typewriter
+error
+\family default
+ if 
 \family typewriter
 Fun
 \family default
@@ -2975,7 +3685,7 @@ Fun
  is simply just a function that does not care about the previous state and
  merely returns the result from the query.
  Although this does add a slight unnecessary overhead of transporting the
- result from the query back and forth, but allows us to return 
+ result from the query back and forth, but allows us to easily return 
 \family typewriter
 error
 \family default
@@ -3065,9 +3775,9 @@ Why?
 \end_inset
 
 .
- This approach would mean that we have to rollback those commits that snuck
- in while we were trying to update the state of the ATS, but this also allows
- us to only compute the function 
+ Although this approach would mean that we have to rollback those commits
+ that snuck in while we were trying to update the state of the ATS, but
+ this also allows us to only compute the function 
 \family typewriter
 Fun
 \family default
@@ -3076,29 +3786,7 @@ Fun
 \family typewriter
 Fun
 \family default
- is expensive; this could go on for a very long time
-\begin_inset Note Note
-status collapsed
-
-\begin_layout Plain Layout
-%% COM As while we try to update the state of AT someone else could do it,
- %% meaning that either we have to do a rollback of that commit, lying to
- the other %% client, thinking that he got a commit through, even though
- we are just going to %% neglect that, as we MUST ensure our update of the
- state data, unless the Fun %% raises some error, and no rollback will occour.
- %% Otherwise we could check that if the state of AT has changed before
- we commit, %% but after we have updated, but this could happen forever,
- leading to that we %% starve ourselves.
- And what if the third time around threw an error, and it was %% just a
- matter of chance (underlying process scheduling, cpu-bussiness, randomness,
- and-so-on) %% if we could have gotten the second update through.
- Blaaw, lots of trouble, I will stick %% to the rollback, even though this
- could mean that we rollback possible many commits.
-\end_layout
-
-\end_inset
-
-.
+ is expensive; this could go on for a very long time.
 \end_layout
 
 \begin_layout Standard
@@ -3113,7 +3801,7 @@ status collapsed
 \family typewriter
 ensureUpdate/2
 \family default
- start by beginning a new transaction 
+ starts by beginning a new transaction 
 \family typewriter
 T
 \family default
@@ -3269,21 +3957,6 @@ choiceUpdate/3
 \end_layout
 
 \begin_layout Standard
-xHow can I ensure that it is the first one that gets through
-\end_layout
-
-\begin_layout Standard
-- Do I need to talk about the communication again?
-\end_layout
-
-\begin_layout Standard
-\begin_inset space ~
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 Parallelism is achieved by utilizing that 
 \family typewriter
 update_t/3
@@ -3328,7 +4001,7 @@ error
 \end_layout
 
 \begin_layout Standard
-There is also the slight change that someone else makes a commit before
+There is also the slight chance that someone else makes a commit before
  any of our transactions gets through, 
 \family typewriter
 choiceUpdate/3
@@ -3736,9 +4409,6 @@ Also here is a generic case added to make sure that any unexpected request
 
 \begin_layout Paragraph
 handle_info(Info, State)
-\end_layout
-
-\begin_layout Standard
 \begin_inset Note Note
 status open
 
@@ -3749,6 +4419,10 @@ http://www.erlang.org/doc/man/gen_server.html#Module:handle_info-2
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+I do not utilize this function.
 \end_layout
 
 \begin_layout Paragraph
@@ -3922,7 +4596,7 @@ Question 1 Testing
 
 \begin_layout Standard
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 When do I consider my implementation to be correct/ working as intended?
@@ -3955,7 +4629,7 @@ SalsaParser
  module.
  
 \begin_inset Note Note
-status open
+status collapsed
 
 \begin_layout Plain Layout
 Why ? And why not also the individual parser.
@@ -3968,6 +4642,8 @@ Why ? And why not also the individual parser.
 \end_layout
 
 \begin_layout Subsubsection
+
+\emph on
 Test_Parser.hs
 \end_layout
 
@@ -3978,27 +4654,44 @@ Test_Parser
 \family default
  which exports the function 
 \family typewriter
-runAllTests
+runAllTests()
 \family default
- which, as its name implies, runs all the implemented tests.
- This test file uses both QuickCheck and HUnit.
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Move to somewhere else ? In introduction?
-\end_layout
-
+ and 
+\family typewriter
+runAllTestsWith(n)
+\family default
+, where n is the number of 
+\emph on
+QuickCheck
+\emph default
+ test cases, 
+\begin_inset Formula $100$
 \end_inset
 
-
+ is the default value.
+ This test file uses both 
+\emph on
+QuickCheck
+\emph default
+ and 
+\emph on
+HUnit
+\emph default
+.
 \end_layout
 
 \begin_layout Standard
-The test file is divided into three parts; a QuickCheck part, testing the
- parser with a valid input string, a HUnit part testing parsing of invalid
- input strings and that the correct precedence and associativity is maintained
- and a the third part testing that the parsing of files works as intended.
+The test file is divided into three parts; a 
+\emph on
+QuickCheck
+\emph default
+ part, testing the parser with a valid input string, a 
+\emph on
+HUnit
+\emph default
+ part testing parsing of invalid input strings and that the correct precedence
+ and associativity is maintained and a the third part testing that the parsing
+ of files works as intended.
 \end_layout
 
 \begin_layout Paragraph
@@ -4033,38 +4726,6 @@ const
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status collapsed
-
-\begin_layout Plain Layout
-Bla bla, describing the newtype TestProgram and the property prop_p_Program..
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Note Note
-status collapsed
-
-\begin_layout Plain Layout
-Limit the code explanation and focus more on the what the test tests for
- and the assessment that raises from it?
-\end_layout
-
-\begin_layout Plain Layout
-Evt.
- move the code explanation into the file itself and refer to it.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 \begin_inset space ~
 \end_inset
 
@@ -4072,7 +4733,7 @@ Evt.
 \end_layout
 
 \begin_layout Standard
-As already mentioned then the test checks for that any
+The test checks that any
 \begin_inset Foot
 status collapsed
 
@@ -4085,10 +4746,13 @@ Of course not all possible input values but a random subset of the possible
 
  valid input string is parsed to the correct abstract syntax tree.
  When generator a test case then nothing is predefined, all values are random
- generated by QuickCheck Gen monad so everything is tested, although each
- value is restricted to be a valid value, and every command and expr is
- within parenthesis meaning that this test does not test for precedence
- or associativity of the operators.
+ generated by 
+\family typewriter
+QuickCheck Gen 
+\family default
+monad so everything is tested, although each value is restricted to be a
+ valid value, and every command and expr is within parenthesis meaning that
+ this test does not test for precedence or associativity of the operators.
 \begin_inset Note Note
 status collapsed
 
@@ -4109,32 +4773,9 @@ Use verbose and comment on the generated data, is it good enough?
 \end_layout
 
 \begin_layout Standard
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Conclusion:
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
 So far the tests keeps succeeding every time I run it.
- 
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-So what then?
-\end_layout
-
-\end_inset
-
- I assume that it works for any valid input string, this means for vidents,
- sidents, white spaces but not precedence and associativity.
+ Based on this I assume that it works for any valid input string, but not
+ precedence and associativity.
 \end_layout
 
 \begin_layout Paragraph
@@ -4331,13 +4972,13 @@ Based on these few simple tests that returned the expected values, I assume
 parseFile
 \family default
  works as intended.
-\begin_inset Newline newline
-\end_inset
+\end_layout
 
+\begin_layout Paragraph
+Conclusion
+\end_layout
 
-\begin_inset Newline newline
-\end_inset
-
+\begin_layout Standard
 Furthermore based on the tests described above and that they all return
  the expected results, I assume that my grammar and my implementation of
  the 
@@ -4351,46 +4992,243 @@ SalsaParser
 Question 2 Testing
 \end_layout
 
+\begin_layout Standard
+To test my implementation of the Salsa interpreter defined in the module
+ 
+\emph on
+SalsaInterp
+\emph default
+ I have implemented a QuickCheck test to do so in the file 
+\emph on
+Test_Interp.hs
+\emph default
+ which defines and implements the module 
+\emph on
+Test_Interp
+\emph default
+.
+ This module exports two functions 
+\family typewriter
+runAllTestsI()
+\family default
+ and 
+\family typewriter
+runAllTestsIWith(n)
+\family default
+.
+ Each run the same QuickCheck test but 
+\family typewriter
+runAllTestsIWith(n)
+\family default
+ allows you to specify the number of test cases to run.
+ The default is set to 
+\begin_inset Formula $100$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+I am aware that 
+\emph on
+hlint
+\emph default
+ spits out a hint of 
+\begin_inset Quotes eld
+\end_inset
+
+Reduce duplication
+\begin_inset Quotes erd
+\end_inset
+
+ but as in the other files I believe it would hurt the readability to resolve
+ it.
+\end_layout
+
+\begin_layout Subsubsection
+
+\emph on
+Test_Interp.hs
+\end_layout
+
+\begin_layout Standard
+As I can assume that the interpreter should not concern much of errors and
+ wrong input, then this will not be a focus in my test.
+\end_layout
+
+\begin_layout Standard
+My test file is divided into two sections; a 
+\emph on
+QuickCheck
+\emph default
+ part and a 
+\emph on
+HUnit
+\emph default
+ part, I therefore find it adequate to divide my test description into two
+ parts as well.
+\end_layout
+
+\begin_layout Paragraph
+Part 1
+\end_layout
+
+\begin_layout Standard
+I have defined a type 
+\family typewriter
+TestAnimation
+\family default
+ which becomes an instance 
+\family typewriter
+QuickCheck.Arbitrary
+\family default
+ and generates a valid Salsa Program 
+\family typewriter
+p
+\family default
+ along with the expected Animation output from interpreting 
+\family typewriter
+p
+\family default
+.
+ I do not intend to go in depth of the generator functions nor helper functions
+ here, instead I want to describe my results.
+\end_layout
+
+\begin_layout Standard
+The generated programs do not contain any Par commands and do not generate
+ At commands that specify a group identifier.
+ It does neither use Xproj or Yproj as expressions.
+\end_layout
+
+\begin_layout Standard
+With that said then it works rather and and returns the expected results
+ with every run.
+\end_layout
+
+\begin_layout Paragraph
+Part 2
+\end_layout
+
+\begin_layout Standard
+This part is a set of 
+\emph on
+HUnit
+\emph default
+ test cases that tests the missing functionality from 
+\series bold
+Part 1
+\series default
+.
+\end_layout
+
+\begin_layout Standard
+The first set of tests tests the 
+\family typewriter
+Par
+\family default
+ command.
+ The case is very simple yet the expected result is returned.
+\end_layout
+
+\begin_layout Standard
+The second case tests that the 
+\family typewriter
+At
+\family default
+ command and 
+\family typewriter
+Group
+\family default
+ definition works in the same program.
+\end_layout
+
+\begin_layout Standard
+The third case tests that the 
+\family typewriter
+Xproj
+\family default
+ and 
+\family typewriter
+Yproj
+\family default
+ expressions work as intended.
+\end_layout
+
+\begin_layout Standard
+The fourth set of tests show that the interpolate function returns the expected
+ results.
+\end_layout
+
+\begin_layout Paragraph
+Conclusion
+\end_layout
+
+\begin_layout Standard
+As my 
+\emph on
+QuickCheck
+\emph default
+ property holds for all Salsa 
+\family typewriter
+Programs
+\family default
+ without the 
+\family typewriter
+Par
+\family default
+ command at 
+\family typewriter
+At
+\family default
+ commands with group identifiers I assume that that part of my Salsa interpreter
+ works as intended.
+ Furthermore based on the unit tests that try to cover what 
+\emph on
+QuickCheck
+\emph default
+ left behind, which are somewhat scraped to a very few number of tests due
+ to a approaching deadline, I (almost) dare to assume that the rest of my
+ Salsa interpreter also works as intended.
+\end_layout
+
 \begin_layout Subsection
 Question 3 Testing
 \end_layout
 
 \begin_layout Standard
--Introduction
+The following is my tests for the atomic transaction server.
+ I have created a single file 
+\emph on
+test_at_server.erl
+\emph default
+ and module 
+\emph on
+test_at_server
+\emph default
+ that tests the interface functions of the server and the extra API functions.
+ The module exports the function 
+\family typewriter
+runTests/0
+\family default
+ that runs all the tests.
 \end_layout
 
 \begin_layout Standard
-- I decided to let each test section to focus on a single interface/API
- function at a time, and use this separation when describing them here.
+I decided to let each test section focus on a single interface/API function
+ at a time, and I will use the same distinction when describing my tests
+ here.
 \end_layout
 
 \begin_layout Standard
-- I assume that no one try to manipulate the servers nor transactions while
+I assume that no one tries to manipulate the servers nor transactions while
  I test them.
 \end_layout
 
-\begin_layout Standard
-- Overall test strategy.
-\end_layout
-
 \begin_layout Subsubsection
+
+\emph on
 test_at_server.erl
-\end_layout
-
-\begin_layout Standard
-- What does it test
-\end_layout
-
-\begin_layout Standard
-- How does it test it
-\end_layout
-
-\begin_layout Standard
-- Does it return the expected result?
-\end_layout
-
-\begin_layout Standard
-- Are there some things left to be tested?
 \end_layout
 
 \begin_layout Paragraph
@@ -5224,16 +6062,11 @@ ensureUpdate/2
 \family default
 , but after it has begun trying, then it will try again, and eventually
  rollback the other commit.
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-But ...
-\end_layout
-
-\end_inset
-
-
+ But it doesn't work presumably of the query call in 
+\family typewriter
+ensureUpdate/2
+\family default
+.
 \end_layout
 
 \begin_layout Standard
@@ -5365,7 +6198,7 @@ All the above functions return the expected result and based on this I assume
 \end_layout
 
 \begin_layout Paragraph
-- Overall conclusion
+Conclusion
 \end_layout
 
 \begin_layout Standard
@@ -5382,8 +6215,1387 @@ at_extapi
  modules work as intended.
 \end_layout
 
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
-Appendix B Code
+Appendix B Grammar
+\end_layout
+
+\begin_layout Subsection
+G0
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom
+\end_layout
+
+\begin_layout LyX-Code
+    | DefCom DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | Command ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | Command ’||’ Command
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | VIdent VIdents .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent SIdents .
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’y’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
+\begin_layout Subsection
+G1
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom
+\end_layout
+
+\begin_layout LyX-Code
+    | DefCom DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= Command ’||’ Command2
+\end_layout
+
+\begin_layout LyX-Code
+    | Command2 .
+\end_layout
+
+\begin_layout LyX-Code
+Command2 ::= Command2 ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | Command3 .
+\end_layout
+
+\begin_layout LyX-Code
+Command3 ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | VIdent VIdents .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent SIdents .
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ ’y’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
+\begin_layout Subsection
+G2
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom DefComs' .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs' ::= DefComs
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= Command ’||’ Command2
+\end_layout
+
+\begin_layout LyX-Code
+    | Command2 .
+\end_layout
+
+\begin_layout LyX-Code
+Command2 ::= Command2 ’@’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | Command3 .
+\end_layout
+
+\begin_layout LyX-Code
+Command3 ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent VIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents' ::= VIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent SIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents' ::= SIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e.
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | Expr Rest2 .
+\end_layout
+
+\begin_layout LyX-Code
+Op :: = ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent ’.’ Rest3 .
+\end_layout
+
+\begin_layout LyX-Code
+Proj ::= ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’y’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
+\begin_layout Subsection
+G3
+\end_layout
+
+\begin_layout LyX-Code
+Program ::= DefComs .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs ::= DefCom DefComs' .
+\end_layout
+
+\begin_layout LyX-Code
+DefComs' ::= DefComs
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+DefCom ::= Command
+\end_layout
+
+\begin_layout LyX-Code
+    | Definition .
+\end_layout
+
+\begin_layout LyX-Code
+Definition ::= ’viewdef’ VIdent Expr Expr
+\end_layout
+
+\begin_layout LyX-Code
+    | ’rectangle’ SIdent Expr Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’circle’ SIdent Expr Expr Expr Colour
+\end_layout
+
+\begin_layout LyX-Code
+    | ’view’ VIdent
+\end_layout
+
+\begin_layout LyX-Code
+    | ’group’ VIdent ’[’ VIdents ’]’ .
+\end_layout
+
+\begin_layout LyX-Code
+Command ::= Command2 Command' .
+\end_layout
+
+\begin_layout LyX-Code
+Command' ::= ’||’ Command2 Command'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Command2 ::= Command3 Command2' .
+\end_layout
+
+\begin_layout LyX-Code
+Command2' ::= ’@’ VIdent Command2'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Command3 ::= SIdents ’->’ Pos
+\end_layout
+
+\begin_layout LyX-Code
+    | ’{’ Command ’}’ .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents ::= VIdent VIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+VIdents' ::= VIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents ::= SIdent SIdents' .
+\end_layout
+
+\begin_layout LyX-Code
+SIdents' ::= SIdents
+\end_layout
+
+\begin_layout LyX-Code
+    | e.
+\end_layout
+
+\begin_layout LyX-Code
+Pos ::= ’(’ Expr ’,’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’+’ ’(’ Expr ’,’ Expr ’)’ .
+\end_layout
+
+\begin_layout LyX-Code
+Expr ::= Prim Expr' .
+\end_layout
+
+\begin_layout LyX-Code
+Expr' ::= Rest2 Expr'
+\end_layout
+
+\begin_layout LyX-Code
+    | e .
+\end_layout
+
+\begin_layout LyX-Code
+Op :: = ’+’ Prim
+\end_layout
+
+\begin_layout LyX-Code
+    | ’-’ Prim .
+\end_layout
+
+\begin_layout LyX-Code
+Prim ::= integer
+\end_layout
+
+\begin_layout LyX-Code
+    | ’(’ Expr ’)’
+\end_layout
+
+\begin_layout LyX-Code
+    | SIdent Rest3 .
+\end_layout
+
+\begin_layout LyX-Code
+Proj ::= ’.’ ’x’
+\end_layout
+
+\begin_layout LyX-Code
+    | ’.’ ’y’ .
+\end_layout
+
+\begin_layout LyX-Code
+Colour ::= ’blue’ | ’plum’ | ’red’ | ’green’ | ’orange’ .
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Appendix C Grammar assumptions
+\end_layout
+
+\begin_layout Subsection
+My assumptions on the grammar
+\end_layout
+
+\begin_layout Standard
+All my assumptions for the grammar can be viewed Appendix D.
+\end_layout
+
+\begin_layout Standard
+Some of the non-terminals in the grammar are not specified in the grammar,
+ and only partly described in the assignment text.
+ I will therefore list my assumptions and the definitions that I use in
+ my implementation.
+\end_layout
+
+\begin_layout Subsubsection
+Case sensitivity
+\end_layout
+
+\begin_layout Standard
+I assume that Salsa is case sensitive.
+ 
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+(This should be given from all definition of 
+\emph on
+VIdent
+\emph default
+ and 
+\emph on
+SIdent
+\emph default
+)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+integer
+\end_layout
+
+\begin_layout Standard
+Is a non-negative integer number and can therefore be written with the following
+ regular expression: 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+[0-9]^{+}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+VIdent
+\end_layout
+
+\begin_layout Standard
+As the assignment text specifies then 
+\emph on
+VIdent
+\emph default
+ is a nonempty sequence of letters, digits and underscore, which starts
+ with a uppercase letter and can therefore be written with the following
+ regular expression:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+[A-Z]^{+}[A-Za-z0-9\_]^{*}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+SIdent
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+SIdent
+\emph default
+ is the same as a 
+\emph on
+VIdent
+\emph default
+ except it cannot be one of the reserved words, described below, and has
+ to start with a lowercase letter, which can be described as:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+[a-z]^{+}[A-Za-z0-9\_]^{*}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+White spaces
+\end_layout
+
+\begin_layout Standard
+White spaces are what most would expect, spaces, any tabs and newlines.
+ As I am using ReadP I will let the the function skipSpaces
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+http://hackage.haskell.org/package/base-4.6.0.1/docs/Text-ParserCombinators-ReadP.html
+\end_layout
+
+\end_inset
+
+ define the exact representation of white spaces.
+\end_layout
+
+\begin_layout Standard
+\begin_inset space ~
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The reserved words, color names, 
+\emph on
+VIdent
+\emph default
+, and 
+\emph on
+SIdent
+\emph default
+ are separated by at least one white space of any kind.
+ Symbolic tokens are separated by 0 or more white spaces and so are symbolic
+ tokens and alpha-numeric tokens from each other.
+\begin_inset Note Note
+status collapsed
+
+\begin_layout Plain Layout
+Rephrase?
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsubsection
+Reserved Words
+\end_layout
+
+\begin_layout Standard
+The reserved words are: 'viewdef', 'rectangle', 'circle', 'group' and 'view'.
+\end_layout
+
+\begin_layout Subsubsection
+Color Names
+\end_layout
+
+\begin_layout Standard
+The names of the color are also considered to be reserved words and are
+ the following: 'blue', 'plum', 'red', 'green' and 'orange'.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Appendix D
+\end_layout
+
+\begin_layout Subsection
+Context functions
+\end_layout
+
+\begin_layout Paragraph
+createEmptyContext :: Integer -> Context
+\end_layout
+
+\begin_layout Standard
+This initializes an empty context with the given Integer 
+\family typewriter
+n
+\family default
+ and returns it, where 
+\family typewriter
+n
+\family default
+ is the frame rate.
+\end_layout
+
+\begin_layout Paragraph
+lookupViews :: Ident -> Environment -> [Ident]
+\end_layout
+
+\begin_layout Standard
+This functions takes an 
+\family typewriter
+Ident
+\family default
+ 
+\family typewriter
+k
+\family default
+ specifying either a 
+\family typewriter
+View
+\family default
+ or a 
+\family typewriter
+Group
+\family default
+ and an 
+\family typewriter
+Environment
+\family default
+ 
+\family typewriter
+env
+\family default
+ and tries to lookup 
+\family typewriter
+k
+\family default
+ in 
+\family typewriter
+env
+\family default
+ and returns the list of views the lookup returned.
+\end_layout
+
+\begin_layout Standard
+The function assumes that the given 
+\family typewriter
+k
+\family default
+ is the name of either a 
+\family typewriter
+View
+\family default
+ or a 
+\family typewriter
+Group
+\family default
+ and that it exists in the environment.
+\end_layout
+
+\begin_layout Paragraph
+bindCommand :: Ident -> [(Ident,Position)] -> State -> State
+\end_layout
+
+\begin_layout Standard
+This function takes an 
+\family typewriter
+Ident
+\family default
+ 
+\family typewriter
+k
+\family default
+ and a list of 
+\family typewriter
+Ident
+\family default
+s and 
+\family typewriter
+Position
+\family default
+s 
+\family typewriter
+l
+\family default
+ and maps 
+\family typewriter
+k
+\family default
+ to 
+\family typewriter
+l
+\family default
+ in a given 
+\family typewriter
+State
+\family default
+ and returns the new 
+\family typewriter
+State
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+addToState :: (State -> State) -> Context -> State
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+addToState
+\family default
+ takes a function 
+\family typewriter
+f
+\family default
+ that takes a 
+\family typewriter
+State
+\family default
+ and returns a new 
+\family typewriter
+State
+\family default
+ and some 
+\family typewriter
+Context
+\family default
+ 
+\family typewriter
+con
+\family default
+ and returns the result from applying 
+\family typewriter
+f
+\family default
+ to the 
+\family typewriter
+State
+\family default
+ within 
+\family typewriter
+con
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+bindDefinition :: Ident -> Definition -> Environment -> Environment
+\end_layout
+
+\begin_layout Standard
+This functions binds an 
+\family typewriter
+Ident
+\family default
+ to a given 
+\family typewriter
+Definition
+\family default
+ into an given 
+\family typewriter
+Environment
+\family default
+ and returns the updated 
+\family typewriter
+Environment
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+addToEnvironment :: (Environment -> Environment) -> Context -> Context
+\end_layout
+
+\begin_layout Standard
+This functions takes a function 
+\family typewriter
+f
+\family default
+, that does some computations on an 
+\family typewriter
+Environment
+\family default
+, a 
+\family typewriter
+Context
+\family default
+ 
+\family typewriter
+con
+\family default
+ and returns the updated 
+\family typewriter
+Context
+\family default
+ from applying 
+\family typewriter
+f
+\family default
+ to the 
+\family typewriter
+Environment
+\family default
+ within 
+\family typewriter
+con
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+updateActiveViews :: [Ident] -> Context -> Context
+\end_layout
+
+\begin_layout Standard
+This function takes a list of 
+\family typewriter
+Ident
+\family default
+s and updates these to be the list of active views in a given 
+\family typewriter
+Context
+\family default
+ and returns the updated 
+\family typewriter
+Context
+\family default
+.
+\end_layout
+
+\begin_layout Paragraph
+placeShapeInActiveViews :: Definition -> Context -> Context
+\end_layout
+
+\begin_layout Standard
+This function takes a 
+\family typewriter
+Definition
+\family default
+ 
+\family typewriter
+def
+\family default
+ and a 
+\family typewriter
+Context
+\family default
+ and updates the 
+\family typewriter
+State
+\family default
+ within the given 
+\family typewriter
+Context
+\family default
+ by mapping the given shape and its position in all the currently active
+ views.
+ The function actually works as a wrapper around 
+\family typewriter
+placeShapeHelper
+\family default
+ that does the actual job, which has just been described.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+placeShapeInActiveViews
+\family default
+ assumes that the given 
+\family typewriter
+def
+\family default
+ is a shape definition, e.i.
+ either rectangle or a circle.
+\end_layout
+
+\begin_layout Subsection
+Animation functions
+\end_layout
+
+\begin_layout Paragraph
+goToNextFrame :: Animation -> Animation
+\end_layout
+
+\begin_layout Standard
+This function simply starts a new keyframe by appending an empty list to
+ the back of the list of frames.
+\end_layout
+
+\begin_layout Paragraph
+addInstructions :: [GpxInstr] -> Animation -> Animation
+\end_layout
+
+\begin_layout Standard
+This function adds a given list of instructions to the current keyframe.
+ That is by appending the instructions to the last frame found in the last
+ of frames.
+\end_layout
+
+\begin_layout Paragraph
+placeShapeInCurrentFrame :: Definition -> [ViewName] -> Animation -> Animation
+\end_layout
+
+\begin_layout Standard
+This function generates instructions to draw a given shape in each view
+ in a given list of views and add these instructions to the current keyframe.
+ This function assumes that the given 
+\family typewriter
+Definition
+\family default
+ is either a rectangle or circle.
+ This function is a wrapper around the helper function 
+\family typewriter
+placeShapeFrameHelper
+\family default
+ that does the described work.
+\end_layout
+
+\begin_layout Paragraph
+addViewToAnimation :: (ViewName, Integer, Integer) -> Animation -> Animation
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+addViewToAnimation
+\family default
+ adds a given view to the list of view definitions in a given 
+\family typewriter
+Animation
+\family default
+ and returns this updated 
+\family typewriter
+Animation
+\family default
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Appendix E Code
+\end_layout
+
+\begin_layout Subsection
+at_server.erl
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/at_server/at_server.erl}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+at_extapi.erl
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/at_server/at_extapi.erl}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+test_at_server.erl
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/at_server/test_at_server.erl}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Gpx.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/Gpx.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+SalsaAst.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/SalsaAst.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+SalsaInterp.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/SalsaInterp.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+SalsaParser.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/SalsaParser.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Test_Interp.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/Test_Interp.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Test_Parser.hs
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/Test_Parser.hs}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+multi.salsa
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/test_files/multi.salsa}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+simple.salsa
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/test_files/simple.salsa}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+empty.salsa
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/test_files/empty.salsa}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+invalid.salsa
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+lstinputlisting[language=Haskell]{src/salsa/test_files/invalid.salsa}
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \end_body

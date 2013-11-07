@@ -68,7 +68,6 @@ pDefComs = do
   dcs <- pDefComs'
   return $ dc:dcs
 
--- why not <++?
 pDefComs' :: ReadP [DefCom]
 pDefComs' =  pDefComs +++ return []
 
@@ -76,14 +75,11 @@ pDefCom :: ReadP DefCom
 pDefCom = do
   cmd <- pCommand
   return $ Com cmd
--- why not <++?
   +++
   do
     def <- pDefinition
     return $ Def def
 
--- TODO split into smaller parses ?
--- Would also stop hlint to mention a hint
 pDefinition :: ReadP Definition
 pDefinition = hViewdef +++ hRectangle +++ hCircle +++ hView +++ hGroup
 

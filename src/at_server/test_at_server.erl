@@ -42,13 +42,6 @@ runTests() ->
     io:format("Testing choiceUpdate/3:......"),
     io:format("~p~n",[testChoiceUpdate()]).
 
-%% TODO dont sleep after update?
-%% TODO test timeouts of the different parts of the server (interface functions)
-%% to make sure that it does not crash
-%% TODO cannot a transaction commit it self inside an update function?
-%% TODO sent unrecognized message
-%% TODO let someone else send message to a transaction
-
 %%%-------------------------------------------------------------------
 %%% Test Functions
 %%%-------------------------------------------------------------------
@@ -86,9 +79,6 @@ testStart() ->
     areTrue([Test1,Test2]).
 
 %% Test begin_t/1
-%% COM/TODO how do I test that the unique references are indeed unique?
-%% -> by looking at make_ref/0 and knowing that is returns a unique reference
-%% -> http://www.erlang.org/doc/man/erlang.html#make_ref-0
 testBegin() ->
     %% Init test data
     State = some_state,
@@ -331,8 +321,6 @@ testCommit_t() ->
     Test1 = areTrue([Test11, Test12, Test13]),
     
     %% 2. Test that after a commit the transactions are all aborted
-    %% -test what happends if we try and update the same ref again
-    %% -test what happends if we try and commit the same ref again
     Test21 = assertEquals(true, isAborted(Pid1,R1)),
     Test22 = assertEquals(aborted, at_server:commit_t(Pid1,R1)),
     Test23 = assertEquals(true, isAborted(Pid1,R1)),
@@ -516,7 +504,6 @@ testEnsureUpdate() ->
 
     %% 3. Test that if someone commits while we are trying to update we still get our
     %% commit through on the original state and the other is rolled backed
-    %% -- HOW? TODO/COM
     {ok,R} = at_server:begin_t(Pid),
     ok = at_server:update_t(Pid,R,fun(_) ->
 					   expensive1(500),

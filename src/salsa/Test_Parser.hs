@@ -33,10 +33,10 @@ runAllTestsWith n = do
   runQCTest n
   putStrLn "\n-------------------- Running HUnit tests -------------------------"
   putStrLn "2. Testing if the precedence and associativity works as intended\n"
-  _ <- runTestTT $ TestList [precedenceCases]
+  _ <- runTestTT precedenceCases
   putStrLn $ "\n3. Testing if the expected errors occur with specific invalid"
     ++" input strings\n"
-  _ <- runTestTT $ TestList [errorCases]
+  _ <- runTestTT errorCases
   putStrLn "\n-------------------- Running Unit tests --------------------------"
   putStrLn "4. Testing if an empty file parses as expected\n"
   b1 <- testF1
@@ -74,9 +74,8 @@ colours :: [(String,Colour)]
 colours = [("blue",Blue), ("plum",Plum), ("red",Red),
            ("green",Green), ("orange",Orange)]
 
--- TODO add all types of whiteSpace
 whiteSpaces :: [String]
-whiteSpaces = [" "]
+whiteSpaces = [" ","\n"]
 
 numbers :: String
 numbers = ['0'..'9']
@@ -101,13 +100,11 @@ instance QC.Arbitrary TestProgram where
 
 ------------------------- Property -------------------------
 
--- TODO optimize it, it is very slow
 prop_pProgram :: TestProgram -> Bool
 prop_pProgram (TestProgram (i,o)) = parseString i == o
 
 ---------------------- QC test runner ----------------------
 
--- TODO allow it to be user defined how many tests it must run
 runQCTest :: Int -> IO ()
 runQCTest n = QC.quickCheckWith QC.stdArgs{maxSuccess = n } prop_pProgram
 
@@ -121,7 +118,6 @@ genManyDefcom words_ = do
   where
     f (acci,acco) (i,o) = return (acci++i,acco++o)
 
--- TODO can I avoid added the parenthesis ? To make the test cover even more?
 genDefcom :: String -> QC.Gen (String, [DefCom])
 genDefcom "viewdef" = do
   vident <- genVident
@@ -198,7 +194,6 @@ genExpr = do
   expr <- QC.elements exprList
   _genExpr expr
 
--- TODO can I avoid added the parenthesis ? To make the test cover even more?
 _genExpr :: String -> QC.Gen (String, Expr)
 _genExpr "plus" = do
   (e1,exp1) <- genExpr
@@ -262,8 +257,6 @@ wsHelper m words_ = do
 --------------------- Precedence tests ---------------------
 ------------------------------------------------------------
 
--- TODO fill out 'd' !!!!
-
 precedenceCases :: Test
 precedenceCases = TestLabel "Test cases for precedence"
                   $ TestList [testP1,testP2,testP3,testP4,testP5,
@@ -274,55 +267,66 @@ precedenceCases = TestLabel "Test cases for precedence"
 testP1 :: Test
 testP1 = let s = "a -> (0,0) @ A @ B @ C"
              a = "{{{ a -> (0,0) @ A } @ B } @ C }"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "@ must be left associative"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 testP2 :: Test
 testP2 = let s = "a -> (0,0) || b->(0,0) || c->(0,0)"
              a = "{{{a -> (0,0)} || b->(0,0)} || c->(0,0)}"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "|| must be left associative"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 
 -- Left associativity of + and -
 testP3 :: Test
 testP3 = let s = "viewdef A 1 1+5+2"
              a = "viewdef A 1 (1+5)+2"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "+ must be left associative"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 testP4 :: Test
 testP4 = let s = "viewdef A 1 1-5-2"
              a = "viewdef A 1 (1-5)-2"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "- must be left associative"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 testP5 :: Test
 testP5 = let s = "viewdef A 1 1+5-2-5"
              a = "viewdef A 1 ((1+5)-2)-5"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "+ & - must be left associative"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 
 -- Show that @ has higher precedence than ||
 testP6 :: Test
 testP6 = let s = "a -> (0,0) || b->(0,0) @ A"
              a = "a -> (0,0) || {b->(0,0) @ A}"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "@ should have higher precedence that ||"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 testP7 :: Test
 testP7 = let s = "a -> (0,0) || b->(0,0) @ A || c->(0,0) @ B @ C"
              a = "a -> (0,0) || {b->(0,0) @ A} || {{c->(0,0) @ B} @ C}"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "@ should have higher precedence that ||"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 
 -- Show that + and - has the same precedence (ie it maintains its order)
 testP8 :: Test
 testP8 = let s = "viewdef A 1 1+5-4"
              a = "viewdef A 1 ((1+5)-4)"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "+ & - should have the same precedence"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 testP9 :: Test
 testP9 = let s = "viewdef A 1 1-5+4"
              a = "viewdef A 1 ((1-5)+4)"
-         in TestCase $ assertEqual "" (parseString a) (parseString s)
+             d = "+ & - should have the same precedence"
+         in TestCase $ assertEqual d (parseString a) (parseString s)
 
 -- Show that . has higher precedence than + and -
 testP10 :: Test
 testP10 = let s = "viewdef A 1 r.x + c.y"
               a = "viewdef A 1 (r.x) + (c.y)"
-          in TestCase $ assertEqual "" (parseString a) (parseString s)
+              d = ". should have higher precedence than +"
+          in TestCase $ assertEqual d (parseString a) (parseString s)
 testP11 :: Test
 testP11 = let s = "viewdef A 1 r.x - c.y"
               a = "viewdef A 1 (r.x) - (c.y)"
-          in TestCase $ assertEqual "" (parseString a) (parseString s)
+              d = ". should have higher precedence than -"
+          in TestCase $ assertEqual d (parseString a) (parseString s)
 
 ------------------------------------------------------------
 ----------------------- Error tests ------------------------

@@ -14,6 +14,9 @@
 % gen_server callback functions
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,code_change/3]).
 
+%% NOTE: I do no error_handling on these values,
+%% therefore set them to anything other than true/false
+%% and int values on your own risk
 -define(MIN_POOL,true).
 %% Default timeout value is 5000 ms for call/3
 -define(TIME_OUT, 5000).
@@ -22,18 +25,12 @@
 %%% API
 %%%-------------------------------------------------------------------
 
-%% xCOM I always assume that AT is a valid at_server process id, this is never
+%% I always assume that AT is a valid at_server process id, this is never
 %% checked and if called with invalid value may result in unexpected error, behaviour or 
 %% and endless waiting for a never responding process.
 
-%% TODO make sure that the transactions only listens to messages given by their master?
 
-%% TODO only one can be started at a time?
-%% -> COM fix is to not give it a name? What is the wanted behaviour? {local, some_name}
-%% xCOM I make no assumptions on the input State
 start(State) ->
-    %% TODO use start or start_link?
-    %% TODO handle error cases here? ie the ignore and {error,erro} respons?
     gen_server:start(at_server, {server, State}, []).
 
 %% call/2 is a synchronous call
@@ -58,7 +55,6 @@ commit_t(AT, Ref) ->
     tryCall(gen_server:call(AT,{commit_t, Ref},?TIME_OUT)).
 
 %%% Extra API
-%% COM I assume that it works as intended
 %% Returns {ok, ListOfPids}
 get_pids(AT) ->
     tryCall(gen_server:call(AT,get_pids,?TIME_OUT)).
@@ -81,7 +77,6 @@ get_pids(AT) ->
 %% ----------------------------------
 %% -------------- ATS ---------------
 init({server, Args}) ->
-    %% TODO Init pool size, or something similar? 
     {ok,{Args,[]}};
 %% ----------------------------------
 %% ---------- Transaction -----------
@@ -105,21 +100,8 @@ init({transaction, Args}) ->
 %% Reason = term()
 %%%----------------------------------
 
-%% COM the "Transactions" variable is an extra parameter that can be used beside the state
-%% The master uses it to keep information of its transations/pool
-%% The transactions uses it to contain some state (aborted or not)
-%% This is referred to as Transaction when only the master receives this message
-%% Status or the actual status if the message is intended to a transaction
-%% And satalite if both can receive the message
-
-%% COM I assume that no one will try and guess the pids of the transactions and send
+%% I assume that no one will try and guess the pids of the transactions and send
 %% them random messages or try and manipulate with them being going past the api functions
-
-%% COM the status of the transactions to don't entirely relfect the status
-%% maintained by the master, as the only thing that is needed is if they
-%% are aborted or not.
-
-%% A dictionary could also have been used instead of a key value pair (for the transaction mappings)
 
 %% ----------------------------------
 %% -------------- ATS ---------------
@@ -152,9 +134,6 @@ handle_call({doquery_t, {Ref, Fun}}, _, {State,Transactions}) ->
 %% ----------------------------------
 %% -------------- ATS ---------------
 handle_call(begin_t, _, {State,Transactions}) ->
-    %% COM why use key pair instead of just using the returned pid as the 'ref' value
-    %% or something else? This allows us to maintain a unique reference to the user but internally
-    %% maintain a small pool of processes instead of killing and spawning new each item
     URef = make_ref(),
     NewTransactions =
 	case lists:keyfind(idle,3,Transactions) of
@@ -224,7 +203,6 @@ handle_call({doquery,Fun}, _, {State,Satalite}) ->
     Reply = try Fun(State) of
 		Result -> {ok,Result}
 	    catch
-		%% TODO report the error to the caller?
 		_:_ -> error
 	    end,
     {reply,Reply,{State,Satalite}};
@@ -264,7 +242,6 @@ handle_cast({update, Fun}, {State, ready}) ->
     NewState = try Fun(State) of
 		   Result -> {Result,ready}
 	       catch
-		   %% TODO report the error to the caller?
 		   _:_ -> {State,aborted}
 	       end,
     {noreply,NewState};
@@ -290,9 +267,7 @@ handle_cast(_,State) ->
 
 %% ----------------------------------
 %% -------------- Both --------------
-%% TODO
 handle_info(_, State) ->
-    io:format("Someone called info!!!"),
     {noreply,State}.
 
 %%%----------------------------------
@@ -349,7 +324,6 @@ code_change(_, State, _) ->
 stopAllTransactions(Transactions) ->
     lists:foreach(fun({_,P,_}) -> stopTransaction(P) end, Transactions).
 
-%% TODO do I need to catch the ok message ?
 stopTransaction(Pid) ->
     try gen_server:call(Pid,stop_at_trans,?TIME_OUT)
     catch 

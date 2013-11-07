@@ -16,6 +16,7 @@ import qualified Data.Map as M
 import Data.Char
 import Data.List
 import qualified Data.Maybe as Mb
+import Test.HUnit
 
 ------------------------------------------------------------
 ------------------ Interface to run tests ------------------
@@ -30,25 +31,55 @@ runAllTestsIWith n = do
   putStrLn "------------ Running tests for the SalsaInterp module ------------"
   putStrLn "------------------------------------------------------------------\n"
   putStrLn "-------------------- Running QuickCheck tests --------------------"
-  putStrLn $ "1. Testing if the interpreter inteprets the expected outputs from random"
-    ++" valid Salsa Program"
+  putStrLn $ "1. Testing if the interpreter inteprets the expected outputs from\n"
+    ++"     random valid Salsa Program."
   putStrLn "Might take a few seconds ...\n"
   runQCTest n
+  putStrLn "\n-------------------- Running HUnit tests -------------------------"
+  putStrLn "2. Testing if the Par command works as intended\n"
+  _ <- runTestTT parCases
+  putStrLn "\n3. Testing if the At command and Group definition works together\n"
+  _ <- runTestTT atgroupCases
+  putStrLn "\n4. Testing if the Xproj and Yproj expressions work\n"
+  _ <- runTestTT projCases
+  putStrLn "\n5. Testing if the interpolate function works as intended\n"
+  _ <- runTestTT interpolateCases
+  return () -- Dummy return
 
 ------------------------------------------------------------
 --------------------- QuickCheck Tests ---------------------
 ---------------- Test valid input Programs -----------------
 ------------------------------------------------------------
 
+---------------------- QC test runner ----------------------
+
+-- TODO allow it to be user defined how many tests it must run
+runQCTest :: Int -> IO ()
+runQCTest n = QC.quickCheckWith QC.stdArgs{maxSuccess = n } prop_runProg
+
+------------------------- Property -------------------------
+
+prop_runProg :: TestAnimation -> Bool
+prop_runProg (TestAnimation ((i,n),o)) = compareAnimations (runProg n i) o
+
+------------------------ Test type -------------------------
+
+newtype TestAnimation = TestAnimation ((Program,Integer), Animation)
+                    deriving (Show, Eq)
+
+instance QC.Arbitrary TestAnimation where
+  arbitrary = do
+    defcoms <- QC.listOf1 $ QC.elements $ definitions++commands
+    (input,output_) <- genManyDefcom ("viewdef":defcoms)
+    return $ TestAnimation (input, output_)
+
 ----------------------- Definitions ------------------------
 
 identarr :: String
 identarr = ['A'..'Z']++['a'..'z']++['0'..'9']++"_"
 
--- COM group and at does not work together
-
 definitions :: [String]
-definitions = ["viewdef","rectangle", "circle", "view"] -- ,"group"]
+definitions = ["viewdef","rectangle", "circle", "view","group"]
 
 commands :: [String]
 commands = ["move",  "at",--"par",
@@ -62,41 +93,16 @@ numbers :: String
 numbers = ['0'..'9']
 
 exprList :: [String]
-exprList = ["const","plus", "minus", "xproj", "yproj",
+exprList = ["const","plus", "minus", --"xproj", "yproj",
             "const","const","const","const","const"]
 
 posList :: [String]
 posList = ["abs","rel"]
 
------------------------- Test type -------------------------
-
-newtype TestAnimation = TestAnimation ((Program,Integer), Animation)
-                    deriving (Show, Eq)
-
-instance QC.Arbitrary TestAnimation where
-  arbitrary = do
-    defcoms <- QC.listOf1 $ QC.elements $ definitions++commands
-    (input,output_) <- genManyDefcom ("viewdef":defcoms)
-    return $ TestAnimation (input, output_)
-
-------------------------- Property -------------------------
-
-prop_runProg :: TestAnimation -> Bool
-prop_runProg (TestAnimation ((i,n),o)) = compareAnimations (runProg n i) o
-
----------------------- QC test runner ----------------------
-
--- TODO allow it to be user defined how many tests it must run
-runQCTest :: Int -> IO ()
-runQCTest n = QC.quickCheckWith QC.stdArgs{maxSuccess = n } prop_runProg
-
 ------------------------ Generators ------------------------
 
 
--- COM the framerate is intentionaly keept low to avoid very very big data sets
--- COM I assume that you cannot have group names in inside a group definition
--- COM I assume that no two names can be used to define two things
-
+-- The framerate is intentionaly keept low to avoid very very big data sets
 
 genManyDefcom :: [String] -> QC.Gen (([DefCom],Integer),Animation)
 genManyDefcom [] = error "Cannot parse an empty list of definitions or commands"
@@ -112,7 +118,7 @@ genManyDefcom words_ = do
       if word `elem` commands && defcoms /= []
         then
           let (view,frames) = new_anim
-              next = reverse ([]:reverse frames)
+              next = frames++[[]]
           in
            return (context,acci++defcoms,(view,next))
         else
@@ -124,10 +130,12 @@ genDefcom "viewdef" c@(Context (env,_,n) state) a@(views,frames) = do
     then
       return (c,[],a)
     else do
-      expw <- genExpr env
-      exph <- genExpr env
-      w <- evalExprQC expw env
-      h <- evalExprQC exph env
+      expw_ <- genExpr env
+      exph_ <- genExpr env
+      expw <- forcePositive expw_ state
+      exph <- forcePositive exph_ state
+      w <- evalExprQC expw state
+      h <- evalExprQC exph state
       let def = Viewdef vident expw exph
           env' = M.insert vident def env
       return (Context (env',[vident],n) state,[Def def], (views++[(vident,w,h)],frames))
@@ -140,13 +148,13 @@ genDefcom "rectangle" c@(Context (env,active,n) state) a@(views,frames) = do
       expx <- genExpr env
       expy <- genExpr env
       expw_ <- genExpr env
-      expw <- forcePositive expw_ env
+      expw <- forcePositive expw_ state
       exph_ <- genExpr env
-      exph <- forcePositive exph_ env      
-      x <- evalExprQC expx env
-      y <- evalExprQC expy env
-      w <- evalExprQC expw env
-      h <- evalExprQC exph env
+      exph <- forcePositive exph_ state      
+      x <- evalExprQC expx state
+      y <- evalExprQC expy state
+      w <- evalExprQC expw state
+      h <- evalExprQC exph state
       (col,col_type) <- genColour
       let (rest,[last_]) = getLast frames
           instrs = map (\viewName -> DrawRect x y w h viewName col) active
@@ -164,10 +172,10 @@ genDefcom "circle" c@(Context (env,active,n) state) a@(views,frames) = do
       expx <- genExpr env
       expy <- genExpr env
       expr_ <- genExpr env
-      expr <- forcePositive expr_ env
-      x <- evalExprQC expx env
-      y <- evalExprQC expy env
-      r <- evalExprQC expr env
+      expr <- forcePositive expr_ state
+      x <- evalExprQC expx state
+      y <- evalExprQC expy state
+      r <- evalExprQC expr state
       (col,col_type) <- genColour
       let (rest,[last_]) = getLast frames
           instrs = map (\viewName -> DrawCirc x y r viewName col) active
@@ -216,7 +224,7 @@ genDefcom "move" c@(Context (env,active,n) state) a@(views,frames) =
      ids <- QC.listOf1 $ QC.elements flist
      let ids2 = removeDuplex ids
      expPos <- genPos env
-     (all_instr,new_state) <- foldM (f_ active expPos n env) ([],state) ids2
+     (all_instr,new_state) <- foldM (f_ active expPos n state) ([],state) ids2
      let (rest,[last_]) = getLast frames
          next1 = rest++[last_++all_instr]
          ids_ = map fst ids2
@@ -225,7 +233,7 @@ genDefcom "move" c@(Context (env,active,n) state) a@(views,frames) =
 genDefcom "at" c@(Context (env,active,n) state) a =
   let list = M.toList env
       flist = filter (\(_,def) -> case def of
-                         (Group _ _) -> True
+                   --      (Group _ _) -> True -- Uncomment to see doom and destruction!
                          (View _) -> True
                          _ -> False
                          ) list
@@ -245,20 +253,28 @@ genDefcom "at" c@(Context (env,active,n) state) a =
        [] ->
          return (c,[],a)
        [Com some] ->
-         return (Context (env',active,n) state', [Com (At some id_)], anim')
+         return (Context (env',active,n) state', [Com $ At some id_], anim')
        _ -> error "Shouldn't be possible"
--- genDefcom "par" = do
---   word1 <- QC.elements commands
---   word2 <- QC.elements commands
---   (cmd1,Com cmdexp1:[]) <- genDefcom word1
---   (cmd2,Com cmdexp2:[]) <- genDefcom word2
---   input <- insertWhiteSpaces ["{",cmd1,"||",cmd2,"}"]
---   return (input, [Com $ Par cmdexp1 cmdexp2])
+genDefcom "par" c a = do
+  cmd1 <- QC.elements commands
+  cmd2 <- QC.elements commands
+  res1 <- genDefcom cmd1 c a
+  let (con1, defcom1, anim1) = res1
+  res2 <- genDefcom cmd2 con1 anim1
+  let (con2, defcom2, anim2) = res2
+  return (case (defcom1,defcom2) of
+             ([],_) ->
+               (c, [], a)
+             (_,[]) ->
+               (c, [], a)
+             ([Com com1],[Com com2]) ->
+               (con2, [Com $ Par com1 com2], anim2)
+             _ -> error "Shouldm't be possible")
 genDefcom s _ _ = error $ "Cannot parse "++s++" into a DefCom"
 
-forcePositive :: Expr -> Environment -> Gen Expr
-forcePositive exp_ env = do
-  val <- evalExprQC exp_ env
+forcePositive :: Expr -> State_ -> Gen Expr
+forcePositive exp_ s = do
+  val <- evalExprQC exp_ s
   return (if val >= 0
           then
             exp_
@@ -267,19 +283,21 @@ forcePositive exp_ env = do
 
 -- COM assumes that id is in state
 -- TODO RENAME
-f_ :: Ord t => [ViewName]  -> Pos -> Integer -> Environment -> ([GpxInstr], M.Map t [(ViewName, (Integer, Integer))]) -> (t, Definition) -> Gen ([GpxInstr], M.Map t [(ViewName, (Integer, Integer))])
-f_ active pos n env acc (id_,def) =
+f_ :: Ord t => [ViewName]  -> Pos -> Integer -> State_ ->
+      ([GpxInstr], M.Map t [(ViewName, (Integer, Integer))]) ->
+      (t, Definition) -> Gen ([GpxInstr], M.Map t [(ViewName, (Integer, Integer))])
+f_ active pos n s acc (id_,def) =
   foldM (\(acc_instrs, acc_state) a ->
            let positions = lookupKey id_ acc_state
            in
             case lookup a positions of
               Just old_pos -> do
-                next_pos <- evalPos_ old_pos pos env
+                next_pos <- evalPos_ old_pos pos s
                 let next_state = M.insert id_ (map (\(vn,p) -> if vn == a
                                                                then (vn,next_pos)
                                                                else (vn,p)
                                                    ) positions) acc_state
-                instr <- genInstrs old_pos next_pos def n a env
+                instr <- genInstrs old_pos next_pos def n a s
                 return (acc_instrs++instr,next_state)
               Nothing ->
                 return (acc_instrs,acc_state)) acc active
@@ -289,30 +307,30 @@ genInstrs :: (Integer, Integer)
                    -> Definition
                    -> Integer
                    -> ViewName
-                   -> Environment
+                   -> State_
                    -> Gen [GpxInstr]
-genInstrs opos npos (Rectangle _ _ _ ew eh ecol) n view env = do
-  w <- evalExprQC ew env
-  h <- evalExprQC eh env
+genInstrs opos npos (Rectangle _ _ _ ew eh ecol) n view s = do
+  w <- evalExprQC ew s
+  h <- evalExprQC eh s
   col <- evalColourQc ecol
   let positions = interpolate n opos npos
   return $ map (\(x,y) -> DrawRect x y w h view col) positions
-genInstrs opos npos (Circle _ _ _ er ecol) n view env = do
-  r <- evalExprQC er env
+genInstrs opos npos (Circle _ _ _ er ecol) n view s = do
+  r <- evalExprQC er s
   col <- evalColourQc ecol
   let positions = interpolate n opos npos
   return $ map (\(x,y) -> DrawCirc x y r view col) positions
 genInstrs _ _ _ _ _ _ = error "Cannot generate instructions if not given a shape"
 
 evalPos_ :: (Integer, Integer)
-                  -> Pos -> Environment -> Gen (Integer, Integer)
-evalPos_ _ (Abs expx expy) env = do
-  x2 <- evalExprQC expx env
-  y2 <- evalExprQC expy env
+                  -> Pos -> State_ -> Gen (Integer, Integer)
+evalPos_ _ (Abs expx expy) s = do
+  x2 <- evalExprQC expx s
+  y2 <- evalExprQC expy s
   return (x2,y2)
-evalPos_ (x,y) (Rel expx expy) env = do
-  x2 <- evalExprQC expx env
-  y2 <- evalExprQC expy env
+evalPos_ (x,y) (Rel expx expy) s = do
+  x2 <- evalExprQC expx s
+  y2 <- evalExprQC expy s
   return (x+x2,y+y2)
 
 genPos :: Environment -> QC.Gen Pos
@@ -338,32 +356,32 @@ evalColourQc Red = return "red"
 evalColourQc Green = return "green"
 evalColourQc Orange = return "orange"
 
-evalExprQC :: Expr -> Environment -> QC.Gen Integer
+evalExprQC :: Expr -> State_ -> QC.Gen Integer
 evalExprQC (Const n) _ = return n
-evalExprQC (Plus e1 e2) env = do
-  n1 <- evalExprQC e1 env
-  n2 <- evalExprQC e2 env
+evalExprQC (Plus e1 e2) s = do
+  n1 <- evalExprQC e1 s
+  n2 <- evalExprQC e2 s
   return $ n1 + n2
-evalExprQC (Minus e1 e2) env = do
-  n1 <- evalExprQC e1 env
-  n2 <- evalExprQC e2 env
+evalExprQC (Minus e1 e2) s = do
+  n1 <- evalExprQC e1 s
+  n2 <- evalExprQC e2 s
   return $ n1 - n2
-evalExprQC (Xproj id_) env = do
-  let def = lookupKey id_ env
-      (expx,_) = getPosition def
-  evalExprQC expx env
-evalExprQC (Yproj id_) env = do
-  let def = lookupKey id_ env
-      (_,expy) = getPosition def
-  evalExprQC expy env
+evalExprQC (Xproj id_) s = do
+  let max_i = toInteger(maxBound :: Int)
+      (x,_) = foldl getLowestPosition (max_i,max_i) $ lookupKey id_ s
+  return x
+evalExprQC (Yproj id_) s = do
+  let max_i = toInteger(maxBound :: Int)
+      (_,y) = foldl getLowestPosition (max_i,max_i) $ lookupKey id_ s
+  return y
 
 genExpr :: Environment -> QC.Gen Expr
 genExpr env = do
   expr <- QC.elements exprList
   _genExpr expr env
 
--- COM/NOTE if i have to create a xproj or yproj, but no shape definition
-  -- has been made yet, a Const will be returned instead.
+-- If I have to create a xproj or yproj, but no shape definition
+-- has been made yet, a Const will be returned instead.
 _genExpr :: String -> Environment -> QC.Gen Expr
 _genExpr "plus" env = do
   (exp1) <- genExpr env
@@ -376,27 +394,21 @@ _genExpr "minus" env = do
 _genExpr "const" _ = do
   n <- genNumber
   return (Const (read n::Integer))
-_genExpr "xproj" env =
-  let list = M.toList env
-      flist = filter (\(x:_,_) -> isLower x) list
-    in
-   if null flist
-   then
-     _genExpr "const" env
-   else do
-     (sid,_) <- QC.elements flist
-     return (Xproj sid)
-_genExpr "yproj" env =
-  let list = M.toList env
-      flist = filter (\(x:_,_) -> isLower x) list
-    in
-   if null flist
-   then
-     _genExpr "const" env
-   else do
-     (sid,_) <- QC.elements flist
-     return (Yproj sid)
+_genExpr "xproj" env = projHelper Xproj env
+_genExpr "yproj" env = projHelper Yproj env
 _genExpr s _ = error $ "Cannot parse "++s++" into an Expr"
+
+projHelper :: (String -> Expr) -> Environment -> QC.Gen Expr
+projHelper a env =
+  let list = M.toList env
+      flist = filter (\(x:_,_) -> isLower x) list
+    in
+   if null flist
+   then
+     _genExpr "const" env
+   else do
+     (sid,_) <- QC.elements flist
+     return $ a sid
 
 genColour :: QC.Gen (String,Colour)
 genColour = QC.elements colours
@@ -419,11 +431,6 @@ genNumber = QC.listOf1 $ QC.elements numbers
 ------------------------------------------------------------
 -------------------- Helper Functions ----------------------
 ------------------------------------------------------------
-
-getPosition :: Definition -> (Expr,Expr)
-getPosition (Rectangle _ x y _ _ _) = (x,y) 
-getPosition (Circle _ x y _ _) = (x,y)
-getPosition _ = error "Trying to get position of something not a shape"
 
 compareAnimations :: Animation -> Animation -> Bool
 compareAnimations (views1,frames1) (views2,frames2) =
@@ -477,3 +484,119 @@ getLast (x:[]) = ([],[x])
 getLast (x:xs) = let (rest,last_) = getLast xs
                  in
                   (x:rest,last_)
+
+getLowestPosition :: Position -> (ViewName,Position) -> Position
+getLowestPosition (l_x,l_y) (_,(x,y)) = let
+  n_x = if x < l_x then x else l_x
+  n_y = if y < l_y then y else l_y
+  in
+   (n_x,n_y)
+
+
+------------------------------------------------------------
+----------------------- HUnit tests ------------------------
+------------------------ Par tests -------------------------
+------------------------------------------------------------
+
+parCases :: Test
+parCases = TestLabel "Test cases for the Par command"
+           $ TestList [testP1]
+
+-- Test that par command works in a simple example
+testP1 :: Test
+testP1 = let s = [ Def (Viewdef "A" (Const 200) (Const 12))
+                 , Def (Circle "b" (Const 10) (Const 10) (Const 5) Green)
+                 , Def (Circle "c" (Const 10) (Const 10) (Const 5) Blue)
+                 , Com (Par (Move ["b"] (Abs (Const 20) (Const 50))) (Move ["c"] (Abs (Const 100) (Const 50))))]
+             a = ([("A",200,12)],[[DrawCirc 10 10 5 "A" "green",DrawCirc 10 10 5 "A" "blue"
+                                  ,DrawCirc 12 18 5 "A" "green",DrawCirc 14 26 5 "A" "green"
+                                  ,DrawCirc 16 34 5 "A" "green",DrawCirc 18 42 5 "A" "green"
+                                  ,DrawCirc 20 50 5 "A" "green",DrawCirc 28 18 5 "A" "blue"
+                                  ,DrawCirc 46 26 5 "A" "blue",DrawCirc 64 34 5 "A" "blue"
+                                  ,DrawCirc 82 42 5 "A" "blue",DrawCirc 100 50 5 "A" "blue"],[]])
+         in TestCase $ assertEqual "" a (runProg 5 s)
+
+
+
+------------------------------------------------------------
+---------------------- At/Group tests ----------------------
+------------------------------------------------------------
+
+atgroupCases :: Test
+atgroupCases = TestLabel "Test cases for testing At and Group"
+               $ TestList [testAg1]
+
+-- Test that the At command and Group definition works together
+
+testAg1 :: Test
+testAg1 = let s = [ Def (Viewdef "A" (Const 200) (Const 12))
+                  , Def (Circle "b" (Const 200) (Const 20) (Const 5) Green)
+                  , Def (Viewdef "B" (Const 10) (Const 500))
+                  , Def (Group "C" ["A","B"])
+                  , Com (At (Move ["b"] (Rel (Const 20) (Const 50))) "C")]
+              a = ([("A",200,12),("B",10,500)],
+                   [[DrawCirc 200 20 5 "A" "green"
+                    ,DrawCirc 210 45 5 "A" "green",DrawCirc 220 70 5 "A" "green"],[]])
+          in TestCase $ assertEqual "" a (runProg 2 s)
+
+------------------------------------------------------------
+----------------------- Proj tests -------------------------
+------------------------------------------------------------
+
+projCases :: Test
+projCases = TestLabel "Test cases for the [XY]proj expressions"
+            $ TestList [testPr1]
+
+-- Test that Xproj and Yproj works in a simple example
+testPr1 :: Test
+testPr1 = let s = [ Def (Viewdef "A" (Const 200) (Const 12))
+                  , Def (Circle "b" (Const 200) (Const 20) (Const 5) Green)
+                  , Def (Circle "c" (Const 10) (Const 100) (Const 5) Blue)
+                  , Com (Move ["b"] (Abs (Yproj "c") (Xproj "b")))]
+              a = ([("A",200,12)],[[DrawCirc 200 20 5 "A" "green",DrawCirc 10 100 5 "A" "blue"
+                                   ,DrawCirc 150 110 5 "A" "green",DrawCirc 100 200 5 "A" "green"],[]])
+          in TestCase $ assertEqual "" a (runProg 2 s)
+
+------------------------------------------------------------
+------------------- interpolate tests ----------------------
+------------------------------------------------------------
+
+interpolateCases :: Test
+interpolateCases = TestLabel "Test cases for the interpolate function"
+                   $ TestList [testIp1,testIp2,testIp3,testIp4,testIp5]
+
+-- Test with 0 frame rate
+testIp1 :: Test
+testIp1 = let s = interpolate 0 (0,0) (10,10)
+              a = []
+              d = "0 frame rate should return []"
+          in TestCase $ assertEqual d a s
+
+-- Test with 1 frame rate
+testIp2 :: Test
+testIp2 = let s = interpolate 1 (0,0) (10,10)
+              a = [(10,10)]
+              d = "1 frame rate should return the end point"
+          in TestCase $ assertEqual d a s
+
+-- Test with 5 frame rate
+testIp3 :: Test
+testIp3 = let s = interpolate 5 (0,0) (10,10)
+              a = [(2,2),(4,4),(6,6),(8,8),(10,10)]
+              d = "5 frame rate should return a list of 5 points"
+          in TestCase $ assertEqual d a s
+
+-- Test with 5 and negative direction
+testIp4 :: Test
+testIp4 = let s = interpolate 5 (10,10) (0,0)
+              a = [(8,8),(6,6),(4,4),(2,2),(0,0)]
+              d = "5 frame rate should return a list of 5 points"
+          in TestCase $ assertEqual d a s
+
+
+-- Test with same points
+testIp5 :: Test
+testIp5 = let s = interpolate 3 (5,5) (5,5)
+              a = [(5,5),(5,5),(5,5)]
+              d = "interpolate from point a to a should only a"
+          in TestCase $ assertEqual d a s
